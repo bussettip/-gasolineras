@@ -1,0 +1,2136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mapa de Gasolineras y Transporte - Morelos</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#1a1a2e;color:#e0e0e0}
+.header{background:linear-gradient(135deg,#16213e,#0f3460);color:#e0e0e0;padding:12px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #e94560;box-shadow:0 2px 15px rgba(0,0,0,.5);position:relative;z-index:1000}
+.header h1{font-size:1.2rem;color:#e94560;letter-spacing:1px}
+.header h1 span{color:#fff}
+.header-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.header-controls button,.header-controls select{padding:6px 14px;border:1px solid #e94560;background:transparent;color:#e0e0e0;border-radius:4px;cursor:pointer;font-size:.78rem;transition:all .3s}
+.header-controls button:hover{background:#e94560;color:#fff}
+.header-controls select{background:#16213e}
+#main-container{display:flex;height:calc(100vh - 56px)}
+#map-container{flex:1;position:relative}
+#map{width:100%;height:100%}
+#sidebar{width:400px;background:#16213e;padding:10px;overflow-y:auto;border-left:1px solid #0f3460;display:flex;flex-direction:column;gap:8px}
+.sidebar-tabs{display:flex;gap:2px}
+.sidebar-tabs button{flex:1;padding:7px;border:none;background:#0f3460;color:#e0e0e0;cursor:pointer;font-size:.75rem;border-radius:4px 4px 0 0;transition:all .3s}
+.sidebar-tabs button.active{background:#e94560;color:#fff}
+.sidebar-tabs button:hover:not(.active){background:#1a1a4e}
+.sidebar-content{flex:1;overflow-y:auto}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.estacion-card{background:#0f3460;border:1px solid #1a1a4e;border-radius:6px;padding:8px 10px;margin-bottom:6px;cursor:pointer;transition:all .2s}
+.estacion-card:hover{border-color:#e94560;transform:translateX(2px)}
+.estacion-card h4{color:#e94560;font-size:.82rem;margin-bottom:2px}
+.estacion-card .tipo-badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:.68rem;margin-bottom:2px}
+.tipo-gasolinera{background:#2d6a4f;color:#d8f3dc}
+.tipo-transporte{background:#0077b6;color:#caf0f8}
+.estacion-card p{font-size:.72rem;color:#a0a0b0;margin:1px 0}
+.estacion-card .ultima-visita{font-size:.7rem;color:#8a8a9a}
+.estacion-card .proxima-visita{font-size:.7rem;color:#4ecdc4}
+.estacion-card .vencida{color:#e94560!important}
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:9999;justify-content:center;align-items:center}
+.modal-overlay.active{display:flex}
+.modal{background:#16213e;border:1px solid #0f3460;border-radius:8px;padding:20px;width:520px;max-width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.modal h2{color:#e94560;margin-bottom:12px;font-size:1rem}
+.modal h3{font-size:.85rem;margin:10px 0 6px}
+.modal .campo{margin-bottom:8px}
+.modal label{display:block;font-size:.75rem;color:#a0a0b0;margin-bottom:2px}
+.modal input,.modal select,.modal textarea{width:100%;padding:6px 8px;border:1px solid #0f3460;background:#1a1a2e;color:#e0e0e0;border-radius:4px;font-size:.8rem}
+.modal textarea{resize:vertical;min-height:50px}
+.modal input:focus,.modal select:focus,.modal textarea:focus{outline:none;border-color:#e94560}
+.modal .btn-group{display:flex;gap:6px;margin-top:12px}
+.modal .btn-group button{flex:1;padding:7px;border:none;border-radius:4px;cursor:pointer;font-size:.8rem}
+.btn-primary{background:#e94560;color:#fff}
+.btn-primary:hover{background:#d63851}
+.btn-secondary{background:#0f3460;color:#e0e0e0}
+.btn-secondary:hover{background:#1a4a7a}
+.btn-danger{background:#6c0000;color:#fff}
+.btn-danger:hover{background:#8a0000}
+.plan-item{background:#0f3460;border-left:3px solid #e94560;padding:8px 10px;margin-bottom:6px;border-radius:0 6px 6px 0;cursor:pointer}
+.plan-item:hover{border-left-color:#ff6b81}
+.plan-item .fecha{color:#4ecdc4;font-size:.72rem}
+.plan-item .nombre{color:#e0e0e0;font-size:.82rem;font-weight:bold}
+.plan-item .municipio{font-size:.7rem;color:#a0a0b0}
+.plan-item .responsable{font-size:.7rem;color:#a0a0b0}
+.plan-item .litros{font-size:.72rem;color:#e94560}
+.stats-bar{display:flex;gap:6px;flex-wrap:wrap;background:#0f3460;border-radius:6px;padding:6px 8px}
+.stat-item{flex:1;text-align:center;min-width:55px}
+.stat-item .num{font-size:1rem;font-weight:bold;color:#e94560}
+.stat-item .label{font-size:.62rem;color:#a0a0b0}
+.tanques-info{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px}
+.tanque-item{background:#1a1a2e;padding:6px;border-radius:4px;text-align:center}
+.tanque-item .nombre{font-size:.68rem;color:#a0a0b0}
+.tanque-item input{width:100%;padding:5px;border:1px solid #333;background:#1a1a2e;color:#e0e0e0;border-radius:4px;text-align:center;font-size:.8rem}
+.tanque-magna input{border-color:#f72585}
+.tanque-premium input{border-color:#7209b7}
+.tanque-diesel input{border-color:#4cc9f0}
+.search-box{width:100%;padding:6px 10px;border:1px solid #0f3460;background:#1a1a2e;color:#e0e0e0;border-radius:4px;margin-bottom:6px;font-size:.78rem}
+.popup-custom{font-size:.75rem;min-width:180px}
+.popup-custom h3{color:#e94560;font-size:.85rem;margin-bottom:4px}
+.popup-custom p{margin:2px 0}
+.toast{position:fixed;bottom:20px;right:20px;background:#2d6a4f;color:#fff;padding:10px 20px;border-radius:6px;box-shadow:0 4px 15px rgba(0,0,0,.3);z-index:10000;display:none;animation:slideIn .3s ease}
+@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast.error{background:#8a0000}
+@media(max-width:768px){
+  #main-container{flex-direction:column}
+  #sidebar{width:100%;height:40vh;border-left:none;border-top:1px solid #0f3460;padding:6px}
+  #map-container{height:55vh}
+  .header{padding:8px 10px;flex-wrap:wrap;gap:6px}
+  .header h1{font-size:.85rem;width:100%;text-align:center}
+  .header-controls{width:100%;justify-content:center;gap:3px}
+  .header-controls button,.header-controls select{font-size:.65rem;padding:4px 5px;max-width:100px}
+  .header-controls select#filtroMunicipio{max-width:120px}
+  .modal{width:98%;padding:12px;margin:5px}
+  .modal h2{font-size:.9rem}
+  .modal .campo{margin-bottom:5px}
+  .modal input,.modal select,.modal textarea{font-size:.75rem;padding:5px 6px}
+  .tanques-info{grid-template-columns:1fr 1fr 1fr;gap:4px}
+  .stats-bar{gap:3px;padding:4px 5px}
+  .stat-item{min-width:45px}
+  .stat-item .num{font-size:.85rem}
+  .stat-item .label{font-size:.55rem}
+  .estacion-card{padding:6px 8px}
+  .estacion-card h4{font-size:.78rem}
+  #sidebar{font-size:.75rem}
+  .search-box{font-size:.72rem;padding:5px 8px}
+  #pickerBtn{bottom:75px;right:8px;width:38px;height:38px;font-size:18px}
+  #pickerStatus{font-size:.7rem;padding:4px 10px;top:5px;width:90%}
+  .sidebar-tabs button{font-size:.7rem;padding:5px}
+  .plan-item{padding:6px 8px}
+  .plan-item .nombre{font-size:.78rem}
+  .popup-custom{font-size:.7rem;min-width:140px}
+  .modal .btn-group{flex-wrap:wrap}
+  .modal .btn-group button{font-size:.72rem;padding:6px;min-width:70px}
+  .header-controls button:last-child{background:#e94560;color:#fff;font-weight:bold}
+}
+.leaflet-popup-content-wrapper{background:#16213e!important;color:#e0e0e0!important;border:1px solid #0f3460;border-radius:6px!important}
+.leaflet-popup-tip{background:#16213e!important}
+.leaflet-control-zoom a{background:#16213e!important;color:#e0e0e0!important;border-color:#0f3460!important}
+.municipio-group{color:#4ecdc4;font-size:.72rem;font-weight:bold;padding:6px 0 2px 4px;border-bottom:1px solid #0f3460;margin-top:4px}
+#municipio-count{font-size:.7rem;color:#a0a0b0;text-align:center;padding:4px;background:#0f3460;border-radius:4px;margin-bottom:4px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>&#9917;</span> GASOLINERAS Y TRANSPORTE - MORELOS</h1>
+  <div class="header-controls">
+    <select id="filtroTipo" onchange="filtrarMapa()" style="min-width:60px;">
+      <option value="">Todos</option>
+      <option value="gasolinera">Gasolineras</option>
+      <option value="transporte">Transporte</option>
+      <option value="parques">Parques</option>
+    </select>
+    <select id="filtroMunicipio" onchange="filtrarMapa()"><option value="">Todos los municipios</option></select>
+    <select id="filtroZona" onchange="filtrarMapa()" style="min-width:65px;">
+      <option value="">Todas las zonas</option>
+    </select>
+    <select id="filtroVendido" onchange="filtrarMapa()" style="min-width:70px;">
+      <option value="">Todos</option>
+      <option value="vendido">Vendidas</option>
+      <option value="novendido">Sin Venta</option>
+    </select>
+    <select id="mapaTipo" onchange="cambiarMapaTipo()">
+      <option value="osm">OpenStreetMap</option>
+      <option value="googleStreets">Google Maps</option>
+      <option value="googleSat">Google Sat&eacute;lite</option>
+    </select>
+    <button onclick="exportarDatos()">Exportar</button>
+    <button onclick="document.getElementById('importFile').click()">Importar</button>
+    <button onclick="descargarExcel()" style="background:#2d6a4f;color:#fff;font-weight:bold">Excel</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importarDatos(event)">
+    <button onclick="agregarNuevo()" style="background:#e94560;color:#fff;border:none;font-weight:bold">+ Nueva</button>
+  </div>
+</div>
+
+<div id="main-container">
+  <div id="map-container"><div id="map"></div></div>
+  <div id="sidebar">
+    <div class="stats-bar" id="statsBar">
+      <div class="stat-item"><div class="num" id="totalGasolineras">0</div><div class="label">Gasolineras</div></div>
+      <div class="stat-item"><div class="num" id="totalVendidas" style="color:#2d6a4f;">0</div><div class="label" style="color:#2d6a4f;">Vendidas</div></div>
+      <div class="stat-item"><div class="num" id="totalNoVendidas" style="color:#e94560;">0</div><div class="label" style="color:#e94560;">Sin Venta</div></div>
+      <div class="stat-item"><div class="num" id="totalTransporte">0</div><div class="label">Transporte</div></div>
+      <div class="stat-item"><div class="num" id="totalVisitas">0</div><div class="label">Visitas</div></div>
+      <div class="stat-item"><div class="num" id="visitasPendientes">0</div><div class="label">Pendientes</div></div>
+    </div>
+    <div class="sidebar-tabs">
+      <button class="active" onclick="cambiarTab('lista',this)">Directorio</button>
+      <button onclick="cambiarTab('plan',this)">Plan</button>
+      <button onclick="cambiarTab('gastos',this)">Gastos</button>
+      <button onclick="cambiarTab('parques',this)" style="background:#4a148c;color:#e0e0e0;">Parques</button>
+    </div>
+    <div class="sidebar-content">
+      <div class="tab-panel active" id="panel-lista">
+        <div style="display:flex;gap:4px;margin-bottom:6px;">
+  <input type="text" class="search-box" placeholder="Buscar por nombre, municipio, direcci&oacute;n..." oninput="filtrarLista(this.value)" style="flex:1;margin-bottom:0;">
+  <button onclick="agregarNuevo()" style="background:#e94560;color:#fff;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:.78rem;font-weight:bold;white-space:nowrap;" title="Agregar nueva estaci&oacute;n">+</button>
+</div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap;">
+          <select id="filtroFechaTipo" onchange="filtrarMapa()" style="flex:1;min-width:70px;padding:3px;border:1px solid #0f3460;background:#1a1a2e;color:#e0e0e0;border-radius:4px;font-size:.7rem;">
+            <option value="">Todas las fechas</option>
+            <option value="ultima">&Uacute;ltima visita</option>
+            <option value="proxima">Pr&oacute;xima visita</option>
+          </select>
+          <span style="font-size:.9rem;cursor:pointer;line-height:24px;" onclick="document.getElementById('filtroFechaDesde').showPicker?document.getElementById('filtroFechaDesde').showPicker():document.getElementById('filtroFechaDesde').focus()">&#128197;</span>
+          <input type="date" id="filtroFechaDesde" onchange="filtrarMapa()" style="flex:1;min-width:80px;padding:2px;border:1px solid #0f3460;background:#1a1a2e;color:#e0e0e0;border-radius:4px;font-size:.7rem;">
+          <span style="font-size:.9rem;cursor:pointer;line-height:24px;" onclick="document.getElementById('filtroFechaHasta').showPicker?document.getElementById('filtroFechaHasta').showPicker():document.getElementById('filtroFechaHasta').focus()">&#128197;</span>
+          <input type="date" id="filtroFechaHasta" onchange="filtrarMapa()" style="flex:1;min-width:80px;padding:2px;border:1px solid #0f3460;background:#1a1a2e;color:#e0e0e0;border-radius:4px;font-size:.7rem;">
+        </div>
+        <div id="municipio-count"></div>
+        <div id="listaEstaciones"></div>
+      </div>
+      <div class="tab-panel" id="panel-plan">
+        <div style="background:#0f3460;border-radius:4px;padding:6px;margin-bottom:6px;">
+          <div style="font-size:.72rem;color:#4ecdc4;font-weight:bold;margin-bottom:4px;">Generar Ruta de Visita</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            <select id="rutaMunicipio" style="flex:1;min-width:80px;padding:3px;border:1px solid #16213e;background:#1a1a2e;color:#e0e0e0;border-radius:4px;font-size:.7rem;">
+              <option value="">Municipio...</option>
+            </select>
+            <select id="rutaTipo" style="flex:1;min-width:65px;padding:3px;border:1px solid #16213e;background:#1a1a2e;color:#e0e0e0;border-radius:4px;font-size:.7rem;">
+              <option value="">Todos</option>
+              <option value="gasolinera">Gasolineras</option>
+              <option value="transporte">Transporte</option>
+            </select>
+            <button onclick="generarRuta()" style="background:#e94560;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.72rem;font-weight:bold;white-space:nowrap;">Generar Ruta</button>
+            <button onclick="limpiarRuta()" style="background:#333;color:#aaa;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:.65rem;white-space:nowrap;" title="Limpiar ruta">X</button>
+          </div>
+        </div>
+        <div id="rutaInfo" style="font-size:.7rem;color:#a0a0b0;text-align:center;padding:4px;background:#0f3460;border-radius:4px;margin-bottom:4px;"></div>
+        <div id="rutaLista" style="max-height:200px;overflow-y:auto;margin-bottom:6px;"></div>
+        <div id="planAccion"></div>
+      </div>
+      <div class="tab-panel" id="panel-gastos">
+        <div style="display:flex;gap:4px;margin-bottom:6px;">
+          <button onclick="agregarGasto()" style="flex:1;background:#e94560;color:#fff;border:none;padding:6px;border-radius:4px;cursor:pointer;font-size:.72rem;font-weight:bold;">+ Nuevo Gasto</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;">
+          <select id="filtroGastoMes" onchange="actualizarGastos()" style="flex:1;padding:4px;border:1px solid #0f3460;background:#1a1a2e;color:#e0e0e0;border-radius:4px;font-size:.7rem;">
+            <option value="">Todos los meses</option>
+            <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+            <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+            <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+          <select id="filtroGastoCategoria" onchange="actualizarGastos()" style="flex:1;padding:4px;border:1px solid #0f3460;background:#1a1a2e;color:#e0e0e0;border-radius:4px;font-size:.7rem;">
+            <option value="">Todas las categor&iacute;as</option>
+            <option value="Combustible">Combustible</option>
+            <option value="Mantenimiento">Mantenimiento</option>
+            <option value="Viaticos">Vi&aacute;ticos</option>
+            <option value="Oficina">Oficina</option>
+            <option value="Sueldos">Sueldos</option>
+            <option value="Impuestos">Impuestos</option>
+            <option value="Seguros">Seguros</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div id="totalGastos" style="font-size:.7rem;color:#4ecdc4;text-align:center;padding:4px;background:#0f3460;border-radius:4px;margin-bottom:4px;"></div>
+        <div id="listaGastos"></div>
+      </div>
+      <div class="tab-panel" id="panel-parques">
+        <div style="background:#4a148c;border-radius:4px;padding:8px;margin-bottom:6px;text-align:center;">
+          <div style="font-size:.82rem;color:#e0e0e0;font-weight:bold;">🏭 Parques Industriales de Morelos</div>
+          <div style="font-size:.7rem;color:#ce93d8;margin-top:2px;">Clic en un parque del mapa para ver sus empresas</div>
+        </div>
+        <div id="listaParques"></div>
+</div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">Editar Estaci&oacute;n</h2>
+    <input type="hidden" id="editId">
+    <div class="campo">
+      <label>Nombre / Raz&oacute;n Social</label>
+      <input type="text" id="editNombre" placeholder="Nombre de la estaci&oacute;n">
+    </div>
+    <div class="campo">
+      <label>Tipo</label>
+      <select id="editTipo">
+        <option value="gasolinera">Gasolinera</option>
+        <option value="transporte">Empresa de Transporte</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Municipio</label>
+      <input type="text" id="editMunicipio" placeholder="Municipio" list="municipios-list">
+      <datalist id="municipios-list"></datalist>
+    </div>
+    <div class="campo">
+      <label>Direcci&oacute;n</label>
+      <input type="text" id="editDireccion" placeholder="Direcci&oacute;n">
+    </div>
+    <div class="campo">
+      <label>Tel&eacute;fono</label>
+      <input type="text" id="editTelefono" placeholder="Tel&eacute;fono">
+    </div>
+    <div class="campo">
+      <label>Contacto / Responsable</label>
+      <input type="text" id="editContacto" placeholder="Nombre del contacto">
+    </div>
+    <div class="campo">
+      <label>Buscar direcci&oacute;n en Google Maps / OSM</label>
+      <div style="display:flex;gap:4px;">
+        <input type="text" id="editSearchAddr" placeholder="Ej: Gasolinera PEMEX Av. Morelos Cuernavaca" style="flex:1;" onkeydown="if(event.key==='Enter')buscarDireccion()">
+        <button type="button" onclick="buscarDireccion()" style="background:#4ecdc4;color:#000;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.75rem;">Buscar</button>
+      </div>
+      <div id="searchResults" style="margin-top:4px;max-height:120px;overflow-y:auto;display:none;"></div>
+    </div>
+    <div class="campo" style="margin-top:8px;">
+      <label>Coordenadas (lat, lng)</label>
+      <div style="display:flex;gap:4px;">
+        <input type="text" id="editCoords" placeholder="18.812, -99.234" style="flex:1;">
+        <button type="button" onclick="activarPickerCoords()" style="background:#e94560;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.75rem;white-space:nowrap;">Se&ntilde;alar</button>
+        <button type="button" onclick="abrirGoogleMaps()" style="background:#4285F4;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.75rem;white-space:nowrap;">Google Maps</button>
+        <button type="button" onclick="abrirStreetView()" style="background:#4cc9f0;color:#000;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.75rem;white-space:nowrap;">Street View</button>
+      </div>
+    </div>
+    <div class="campo">
+      <label>O pega enlace de Google Maps para extraer coordenadas</label>
+      <div style="display:flex;gap:4px;">
+        <input type="text" id="editGmapsUrl" placeholder="https://www.google.com/maps/place/..." style="flex:1;">
+        <button type="button" onclick="extraerCoordsDeUrl()" style="background:#34a853;color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.75rem;">Extraer</button>
+      </div>
+    </div>
+    <div class="campo" style="margin-top:8px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="editVendido" onchange="marcarVendido()" style="width:18px;height:18px;accent-color:#2d6a4f;">
+        <span style="font-size:.85rem;color:#4ecdc4;font-weight:bold;">VENDIDO / CLIENTE ACTIVO</span>
+      </label>
+      <div style="font-size:.7rem;color:#a0a0b0;margin-top:2px;">Marca esta casilla si ya se le vende/abastece a esta estaci&oacute;n</div>
+    </div>
+    <h3 style="color:#4ecdc4;">Datos de &uacute;ltima Visita</h3>
+    <div class="campo">
+      <label>Fecha de Visita</label>
+      <div style="display:flex;gap:4px;">
+        <span style="font-size:.9rem;cursor:pointer;line-height:24px;" onclick="document.getElementById('editFechaVisita').showPicker?document.getElementById('editFechaVisita').showPicker():document.getElementById('editFechaVisita').focus()">&#128197;</span>
+        <input type="date" id="editFechaVisita" style="flex:1;">
+        <button type="button" onclick="document.getElementById('editFechaVisita').value=new Date().toISOString().split('T')[0]" style="background:#4ecdc4;color:#000;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:.7rem;white-space:nowrap;">Hoy</button>
+      </div>
+    </div>
+    <div class="campo">
+      <label>Pr&oacute;xima Fecha de Visita</label>
+      <div style="display:flex;gap:4px;">
+        <span style="font-size:.9rem;cursor:pointer;line-height:24px;" onclick="document.getElementById('editProximaVisita').showPicker?document.getElementById('editProximaVisita').showPicker():document.getElementById('editProximaVisita').focus()">&#128197;</span>
+        <input type="date" id="editProximaVisita" style="flex:1;">
+        <button type="button" onclick="document.getElementById('editProximaVisita').value=new Date().toISOString().split('T')[0]" style="background:#4ecdc4;color:#000;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:.7rem;white-space:nowrap;">Hoy</button>
+      </div>
+    </div>
+    <div class="campo">
+      <label>Responsable de Venta</label>
+      <input type="text" id="editResponsable" placeholder="Nombre del vendedor">
+    </div>
+    <div class="campo">
+      <label>Litros Solicitados</label>
+      <input type="number" id="editLitros" placeholder="0" min="0">
+    </div>
+    <div class="campo">
+      <label>Notas / Observaciones</label>
+      <textarea id="editNotas" placeholder="Observaciones de la visita..."></textarea>
+    </div>
+    <h3 style="color:#4cc9f0;">Volumen de Tanques (Litros)</h3>
+    <div class="tanques-info">
+      <div class="tanque-item tanque-magna">
+        <div class="nombre">MAGNA</div>
+        <input type="number" id="editTanqueMagna" placeholder="0">
+      </div>
+      <div class="tanque-item tanque-premium">
+        <div class="nombre">PREMIUM</div>
+        <input type="number" id="editTanquePremium" placeholder="0">
+      </div>
+      <div class="tanque-item tanque-diesel">
+        <div class="nombre">DIESEL</div>
+        <input type="number" id="editTanqueDiesel" placeholder="0">
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn-primary" onclick="guardarEstacion()">Guardar</button>
+      <button class="btn-danger" onclick="eliminarEstacion()">Eliminar</button>
+      <button class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="gastoModalOverlay">
+  <div class="modal">
+    <h2 id="gastoModalTitle">Nuevo Gasto de Operaci&oacute;n</h2>
+    <input type="hidden" id="editGastoId">
+    <div class="campo">
+      <label>Concepto / Descripci&oacute;n</label>
+      <input type="text" id="editGastoConcepto" placeholder="Ej: Combustible para viaje a Cuautla">
+    </div>
+    <div class="campo">
+      <label>Categor&iacute;a</label>
+      <select id="editGastoCategoria">
+        <option value="Combustible">Combustible</option>
+        <option value="Mantenimiento">Mantenimiento</option>
+        <option value="Viaticos">Vi&aacute;ticos</option>
+        <option value="Oficina">Oficina</option>
+        <option value="Sueldos">Sueldos</option>
+        <option value="Impuestos">Impuestos</option>
+        <option value="Seguros">Seguros</option>
+        <option value="Otro">Otro</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <div class="campo" style="flex:1;">
+        <label>Monto ($)</label>
+        <input type="number" id="editGastoMonto" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="campo" style="flex:1;">
+        <label>Fecha</label>
+        <div style="display:flex;gap:4px;">
+        <span style="font-size:.9rem;cursor:pointer;line-height:24px;" onclick="document.getElementById('editGastoFecha').showPicker?document.getElementById('editGastoFecha').showPicker():document.getElementById('editGastoFecha').focus()">&#128197;</span>
+        <input type="date" id="editGastoFecha" style="flex:1;min-width:130px;">
+          <button type="button" onclick="document.getElementById('editGastoFecha').value=new Date().toISOString().split('T')[0]" style="background:#4ecdc4;color:#000;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:.7rem;white-space:nowrap;">Hoy</button>
+        </div>
+      </div>
+    </div>
+    <div class="campo">
+      <label>Notas / Comentarios</label>
+      <textarea id="editGastoNotas" placeholder="Detalles adicionales..." style="min-height:40px;"></textarea>
+    </div>
+    <div class="btn-group">
+      <button class="btn-primary" onclick="guardarGasto()">Guardar</button>
+      <button class="btn-danger" onclick="eliminarGasto()">Eliminar</button>
+      <button class="btn-secondary" onclick="cerrarGastoModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const MORELOS_CENTER = [18.812, -99.234];
+const DEFAULT_ZOOM = 10;
+
+const MUNICIPIOS = ["Amacuzac", "Atlatlahucan", "Axochiapan", "Ayala", "Coatetelco", "Coatlán del Río", "Cuautla", "Cuernavaca", "Emiliano Zapata", "Hueyapan", "Huitzilac", "Jantetelco", "Jiutepec", "Jojutla", "Jonacatepec", "Miacatlán", "Ocuituco", "Puente de Ixtla", "Temixco", "Temoac", "Tepalcingo", "Tepoztlán", "Tetecala", "Tetela del Volcán", "Tlalnepantla", "Tlaltizapán", "Tlaquiltenango", "Tlayacapan", "Totolapan", "Xochitepec", "Xoxocotla", "Yautepec", "Yecapixtla", "Zacatepec", "Zacualpan"];
+
+const ZONAS = {
+  "Norte":"Norte","Cuernavaca":"Norte","Huitzilac":"Norte","Tepoztlán":"Norte","Jiutepec":"Norte","Temixco":"Norte","Xochitepec":"Norte","Emiliano Zapata":"Norte",
+  "Centro":"Centro","Cuautla":"Centro","Yautepec":"Centro","Ayala":"Centro","Atlatlahucan":"Centro","Totolapan":"Centro","Tlayacapan":"Centro","Tlalnepantla":"Centro",
+  "Sur":"Sur","Jojutla":"Sur","Zacatepec":"Sur","Tlaltizapán":"Sur","Tlaquiltenango":"Sur","Puente de Ixtla":"Sur","Amacuzac":"Sur","Coatlán del Río":"Sur","Tetecala":"Sur","Mazatepec":"Sur","Coatetelco":"Sur","Xoxocotla":"Sur",
+  "Oriente":"Oriente","Yecapixtla":"Oriente","Ocuituco":"Oriente","Tetela del Volcán":"Oriente","Zacualpan":"Oriente","Hueyapan":"Oriente","Temoac":"Oriente","Jonacatepec":"Oriente","Jantetelco":"Oriente","Tepalcingo":"Oriente","Axochiapan":"Oriente"
+};
+const ZONAS_LIST = ["Norte","Centro","Sur","Oriente"];
+
+const MUNICIPIO_COORDS = {
+  "Amacuzac":[18.692, -99.462], "Atlatlahucan":[18.891, -98.913], "Axochiapan":[18.525, -98.76], "Ayala":[18.797, -98.97], "Coatlán del Río":[18.734, -99.452], "Coatetelco":[18.737, -99.317], "Cuautla":[18.855, -98.936], "Cuernavaca":[18.953, -99.245], "Emiliano Zapata":[18.803, -99.198], "Huitzilac":[19.038, -99.265], "Hueyapan":[18.865, -98.7], "Jantetelco":[18.726, -98.791], "Jiutepec":[18.891, -99.127], "Jojutla":[18.595, -99.259], "Jonacatepec":[18.657, -98.789], "Miacatlán":[18.834, -99.39], "Ocuituco":[18.879, -98.777], "Puente de Ixtla":[18.692, -99.282], "Temixco":[18.837, -99.222], "Temoac":[18.76, -98.792], "Tepalcingo":[18.628, -99.003], "Tepoztlán":[18.982, -99.108], "Tetecala":[18.692, -99.462], "Tetela del Volcán":[18.918, -98.72], "Tlalnepantla":[19.03, -98.986], "Tlaltizapán":[18.686, -99.119], "Tlaquiltenango":[18.499, -99.102], "Tlayacapan":[18.944, -98.971], "Totolapan":[18.996, -98.932], "Xochitepec":[18.775, -99.225], "Xoxocotla":[18.702, -99.276], "Yautepec":[18.89, -98.985], "Yecapixtla":[18.859, -98.874], "Zacatepec":[18.658, -99.184], "Zacualpan":[18.81, -98.763]
+};
+
+const PARQUES = [
+  {id:"civac",nombre:"CIVAC",municipio:"Jiutepec",lat:18.912,lng:-99.169,desc:"Ciudad Industrial del Valle de Cuernavaca. ~230 ha, 120+ empresas.",empresas:["Nissan Mexicana","Unilever","Baxter","GSK","Givaudan","Roche","NEC","Mayekawa","Alucaps","Fibrolub"]},
+  {id:"pic",nombre:"P.I. Cuautla",municipio:"Ayala",lat:18.7499,lng:-98.909,desc:"Parque Industrial Cuautla. ~114 ha, 25+ empresas.",empresas:["Saint Gobain Sekurit","Continental Automotive Temic"]},
+  {id:"yecapixtla",nombre:"P.I. Yecapixtla",municipio:"Yecapixtla",lat:18.883,lng:-98.867,desc:"Zona textil. Burlington, Cone Denim, Hilos de Yecapixtla.",empresas:["Casimires Burlington","Cone Denim","Hilos de Yecapixtla"]},
+  {id:"ezapata",nombre:"D.I. Emiliano Zapata",municipio:"Emiliano Zapata",lat:18.831,lng:-99.183,desc:"Ciudad de la Confección. ~26 ha.",empresas:["Moda Maya","Avi de México"]},
+  {id:"cientifico",nombre:"Parque Científico y Tecnológico",municipio:"Xochitepec",lat:18.857,lng:-99.223,desc:"Parque Científico y Tecnológico de Morelos."},
+  {id:"agro-xochi",nombre:"Agroindustrial Xochitepec",municipio:"Xochitepec",lat:18.785,lng:-99.230,desc:"Parque Agroindustrial de Xochitepec."},
+  {id:"agro-yec",nombre:"Agroparque Yecapixtla",municipio:"Yecapixtla",lat:18.875,lng:-98.855,desc:"Agroparque Yecapixtla."}
+];
+
+const GASOLINERAS_DATA = [
+  // AMACUZAC - TRANSPORTE,
+  {n:"SERVICIO TETECALA S.A. DE C.V.",m:"Amacuzac",t:"transporte",d:"62626 Tetecala, Morelos, Mexico",tel:"",co:[18.6922,-99.4618]},
+  // ATLATLAHUCAN - TRANSPORTE,
+  {n:"Base transporte publico",m:"Atlatlahucan",t:"transporte",d:"Cruz Verde 7-10, San Antonio, 62843 Atlatlahucan, Mor., Mexico",tel:"",co:[18.9407,-98.8962]},
+  {n:"Sitio de Taxis Atlatlahucan",m:"Atlatlahucan",t:"transporte",d:"Carretere Kilómetro 88 SN, Barrio de la Asuncion, 62840 Atlatlahucan, Mor., Mexico",tel:"735 351 4374",co:[18.9337,-98.8975]},
+  {n:"SERVICIO GENERAL MORELOS",m:"Atlatlahucan",t:"transporte",d:"Crecencio González 3, El Mirador, 62840 Atlatlahucan, Mor., Mexico",tel:"",co:[18.9346,-98.8911]},
+  {n:"Sitio de Taxis Amador Salazar",m:"Atlatlahucan",t:"transporte",d:"Amador Salazar Sn, Barrio de la Asuncion, 62840 Atlatlahucan, Mor., Mexico",tel:"735 150 3588",co:[18.9337,-98.8975]},
+  {n:"Autos Y Camiones",m:"Atlatlahucan",t:"transporte",d:"62846 Morelos, Mexico",tel:"",co:[18.9201,-98.8936]},
+  {n:"Mudanzas Sobastian",m:"Atlatlahucan",t:"transporte",d:"Oaxtepec 6, 62847 Fraccionamiento Lomas de Cocoyoc, Mor., Mexico",tel:"",co:[18.9077,-98.9294]},
+  {n:"Tractocamiones Y Accesorios \"Jimenez\"",m:"Atlatlahucan",t:"transporte",d:"62828 Adolfo López Mateos, Morelos, Mexico",tel:"",co:[18.8834,-98.9178]},
+  {n:"Residencial las Villas Yecapixtla",m:"Atlatlahucan",t:"transporte",d:"62846 Colonia San Francisco, Morelos, Mexico",tel:"",co:[18.8980,-98.9083]},
+  // AXOCHIAPAN - TRANSPORTE,
+  {n:"Terminal Autobuses Volcanes y Sur",m:"Axochiapan",t:"transporte",d:"Volcanes, Prol. Zaragoza, Centro, 62950 Axochiapan, Mor., Mexico",tel:"832 102 1994",co:[18.5011,-98.7522]},
+  {n:"Transportes de carga",m:"Axochiapan",t:"transporte",d:"Carretera axochiapan Cuautla km. O. 5, 62950 Axochiapan, Mor., Mexico",tel:"",co:[18.5067,-98.7669]},
+  {n:"Fer",m:"Axochiapan",t:"transporte",d:"Carr. a Atlacahualoya Km. 1.5, La Guadalupana, 62950 Axochiapan, Mor., Mexico",tel:"",co:[18.5125,-98.7475]},
+  {n:"TAXI Axochiapan",m:"Axochiapan",t:"transporte",d:"Independencia 6, Centro, 62950 Axochiapan, Mor., Mexico",tel:"56 4281 9767",co:[18.5013,-98.7525]},
+  {n:"Volcanes",m:"Axochiapan",t:"transporte",d:"Prol. Zaragoza, Centro, 62950 Axochiapan, Mor., Mexico",tel:"",co:[18.5013,-98.7522]},
+  {n:"Autobuses Rápidos Morelenses",m:"Axochiapan",t:"transporte",d:"Av. Zaragoza, Centro, 62950 Axochiapan, Mor., Mexico",tel:"",co:[18.5009,-98.7525]},
+  {n:"Central de Combis Tlalayo-Atlacahualoya",m:"Axochiapan",t:"transporte",d:"Nicolás Bravo, Centro, 62950 Axochiapan, Mor., Mexico",tel:"",co:[18.5027,-98.7515]},
+  {n:"Omnibus Cristobal Colón Cuautla",m:"Axochiapan",t:"transporte",d:"Av. Zaragoza Sn, Centro, 62950 Axochiapan, Mor., Mexico",tel:"769 351 0232",co:[18.5013,-98.7521]},
+  {n:"Terminal Volcanes Sur",m:"Axochiapan",t:"transporte",d:"Prol. Zaragoza 61, Centro, 62950 Axochiapan, Mor., Mexico",tel:"",co:[18.5011,-98.7522]},
+  {n:"parada de autobuses",m:"Axochiapan",t:"transporte",d:"Florida, 62954 Axochiapan, Mor., Mexico",tel:"",co:[18.5021,-98.7562]},
+  {n:"Delegación de Tránsito",m:"Axochiapan",t:"transporte",d:"Colón, Florida, 62954 Axochiapan, Mor., Mexico",tel:"",co:[18.5049,-98.7635]},
+  {n:"servicio de combis a ''telixtac''",m:"Axochiapan",t:"transporte",d:"Juárez, Centro, 62950 Axochiapan, Mor., Mexico",tel:"",co:[18.5013,-98.7547]},
+  {n:"Antigua Estación de Ferrocarril",m:"Axochiapan",t:"transporte",d:"62950 Axochiapan, Morelos, Mexico",tel:"",co:[18.5020,-98.7316]},
+  {n:"Taxis",m:"Axochiapan",t:"transporte",d:"Juárez 25, Centro, 62950 Axochiapan, Mor., Mexico",tel:"",co:[18.5043,-98.7540]},
+  {n:"MULTISERVICIO EXPRESS",m:"Axochiapan",t:"transporte",d:"62956 Axochiapan, Morelos, Mexico",tel:"",co:[18.4881,-98.7483]},
+  {n:"Paquetería Envía Express",m:"Axochiapan",t:"transporte",d:"Calle Galeana 71B, Centro, 62950 Axochiapan, Mor., Mexico",tel:"",co:[18.5036,-98.7523]},
+  {n:"Sitio de taxis Lázaro Cárdenas",m:"Axochiapan",t:"transporte",d:"Prol. Zaragoza 3, Progreso, 62953 Axochiapan, Mor., Mexico",tel:"",co:[18.5009,-98.7520]},
+  // AYALA - TRANSPORTE,
+  {n:"Transportes PLG/ SYPSA",m:"Ayala",t:"transporte",d:"Carr México Oaxaca #10, Hermenegildo Galeana, 62743 Cuautla, Mor., Mexico",tel:"735 302 3415",co:[18.7953,-98.9150]},
+  {n:"FLETES Y MUDANZAS DANDU",m:"Ayala",t:"transporte",d:"El Porvenir 15, algodonal, 62742 Cuautla, Mor., Mexico",tel:"735 238 0975",co:[18.8011,-98.9524]},
+  {n:"Fletes y Mudanzas Daza",m:"Ayala",t:"transporte",d:"Centro, 62740 Cuautla, Morelos, Mexico",tel:"735 194 1000",co:[18.8126,-98.9548]},
+  {n:"Transportadora Morelense, S.A. de C.V.",m:"Ayala",t:"transporte",d:"Carr. México - Oaxaca # 1298-B, Hermenegildo Galeana, 62741 Cuautla, Mor., Mexico",tel:"735 206 9467",co:[18.7933,-98.9122]},
+  {n:"Autobuses Pullman",m:"Ayala",t:"transporte",d:"Mariano Antonio y Máximo Bravo 53, Centro, 62742 Cuautla, Mor., Mexico",tel:"735 352 7371",co:[18.8113,-98.9514]},
+  {n:"Base de combis Ruta 15",m:"Ayala",t:"transporte",d:"Centro, 62740 Cuautla, Mor., Mexico",tel:"",co:[18.8126,-98.9527]},
+  {n:"Terminal SUR",m:"Ayala",t:"transporte",d:"De Los Niños Heroes 1847 42, Centro, 62740 Cuautla, Mor., Mexico",tel:"",co:[18.8110,-98.9519]},
+  {n:"Terminal ORO",m:"Ayala",t:"transporte",d:"Centro, 62740 Cuautla, MOR, Mexico",tel:"222 450 6605",co:[18.8108,-98.9530]},
+  {n:"Omnibus Cristobal Colón OCC",m:"Ayala",t:"transporte",d:"2 de Mayo 97, Centro, 62740 Cuautla, Mor., Mexico",tel:"735 352 0236",co:[18.8109,-98.9517]},
+  {n:"Terminal Oro",m:"Ayala",t:"transporte",d:"2 de Mayo 60, Centro, 62740 Cuautla, Mor., Mexico",tel:"222 450 6605",co:[18.8110,-98.9530]},
+  {n:"Autobuses Oro",m:"Ayala",t:"transporte",d:"Ing. Mongoy 262, Centro, 62744 Cuautla, Mor., Mexico",tel:"735 352 3555",co:[18.8118,-98.9512]},
+  {n:"Mudanzas Galindo",m:"Ayala",t:"transporte",d:"José María Bustamante 11, Iztaccihuatl, 62743 Cuautla, Mor., Mexico",tel:"735 237 3161",co:[18.7986,-98.9108]},
+  {n:"Feltes y Mudanzas Vazquez",m:"Ayala",t:"transporte",d:"Galeana, Centro, 62740 Cuautla, Mor., Mexico",tel:"735 180 3096",co:[18.8150,-98.9539]},
+  {n:"Estacionamiento Público y Autolavado \"La Casa de los ángeles\"",m:"Ayala",t:"transporte",d:"Calle Otilio E. Montaño. Colonia Centro, Otilio E. Montaño, 62700 Cdad. Ayala, Mor., Mexico",tel:"",co:[18.7677,-98.9824]},
+  {n:"Antigua venta de boletos del autobus urbano",m:"Ayala",t:"transporte",d:"62724 El Salitre, Morelos, Mexico",tel:"",co:[18.7135,-98.9581]},
+  {n:"Ayuntamiento de Ayala Morelos",m:"Ayala",t:"transporte",d:"Plaza Cívica Francisco Ayala Sn, Centro, 62700 Cdad. Ayala, Mor., Mexico",tel:"735 308 3548",co:[18.7671,-98.9822]},
+  {n:"Secretaría de Movilidad y Transporte",m:"Ayala",t:"transporte",d:"Dr. J. G. Parres 125, Emiliano Zapata, 62744 Cuautla, Mor., Mexico",tel:"735 148 8899",co:[18.8193,-98.9493]},
+  {n:"RADIO TAXIS TEPETATES BASE 4",m:"Ayala",t:"transporte",d:"AVENIDA LOPEZ PORTILLO 2368, Amp la Doncella, 62714 Cdad. Ayala, Mor., Mexico",tel:"735 284 2534",co:[18.7878,-98.9588]},
+  {n:"Taxis del Pedregal",m:"Ayala",t:"transporte",d:"62715 Ciudad Ayala, Morelos, Mexico",tel:"735 121 5151",co:[18.7397,-98.9053]},
+  {n:"Autobuses Estrella Blanca",m:"Ayala",t:"transporte",d:"Ing. Mongoy 63-51, Centro, 62740 Cuautla, Mor., Mexico",tel:"800 507 5500",co:[18.8122,-98.9525]},
+  {n:"Autobuses de Turismo Cuauhnáhuac",m:"Ayala",t:"transporte",d:"México - Cuautla SN, Centro, 62740 Cuautla, Mor., Mexico",tel:"735 353 8128",co:[18.8001,-98.9455]},
+  {n:"Terminal de autobuses OCC",m:"Ayala",t:"transporte",d:"Centro, 62740 Cuautla, Mor., Mexico",tel:"",co:[18.8111,-98.9517]},
+  {n:"DAM TRACTO IMPORTACIONES SA DE CV (REFACCIONES Y SERVICIO DIESEL)",m:"Ayala",t:"transporte",d:"Carr México Oaxaca 106, Hermenegildo Galeana, 62743 Cuautla, Mor., Mexico",tel:"",co:[18.7981,-98.9205]},
+  {n:"TURISTICOS DEL ANGEL",m:"Ayala",t:"transporte",d:"Av. Revolución 671, Plan de Ayala, 62743 Cuautla, Mor., Mexico",tel:"735 354 9999",co:[18.8038,-98.9321]},
+  {n:"Turibus 279",m:"Ayala",t:"transporte",d:"Cap. Bollas Sin Cabeza 3F, Centro, 62740 Cuautla, Mor., Mexico",tel:"735 177 9786",co:[18.8158,-98.9541]},
+  {n:"Los 3 hermanos servicio express",m:"Ayala",t:"transporte",d:"Galeana - Cuautla 5, Centro, 62700 Cdad. Ayala, Mor., Mexico",tel:"735 324 3291",co:[18.7662,-98.9828]},
+  {n:"Renta de Autobuses y camionetas",m:"Ayala",t:"transporte",d:"Av. Revolución 675, Plan de Ayala, 62743 Cuautla, Mor., Mexico",tel:"",co:[18.8036,-98.9317]},
+  {n:"Paqueteria Tulcingo Luna Travel",m:"Ayala",t:"transporte",d:"2 de Mayo #85, entre la terminal cristobal colon y la oro, Centro, 62742 Cuautla, Mor., Mexico",tel:"735 308 0140",co:[18.8111,-98.9524]},
+  {n:"PaMex PAQUETERIA",m:"Ayala",t:"transporte",d:"Miguel Ramírez 14, Centro, 62740 Cuautla, Mor., Mexico",tel:"735 140 0158",co:[18.8136,-98.9537]},
+  {n:"Busitos Cuautla",m:"Ayala",t:"transporte",d:"De Los Niños Heroes 1847, Centro, 62742 Cuautla, Mor., Mexico",tel:"735 148 9435",co:[18.8111,-98.9506]},
+  {n:"Terminal cuatla",m:"Ayala",t:"transporte",d:"Del Ejército Libertador 20, Gabriel Tepepa, 62742 Cuautla, Mor., Mexico",tel:"",co:[18.8084,-98.9395]},
+  // COATETELCO - TRANSPORTE,
+  {n:"Terminal De Autobuses Lasser",m:"Coatetelco",t:"transporte",d:"Narvarte, 62606 Coatetelco Centro, Mor., Mexico",tel:"771 151 7463",co:[18.7270,-99.3377]},
+  {n:"Taxis",m:"Coatetelco",t:"transporte",d:"Av. Morelos SN, Centro, 62606 Coatetelco Centro, Mor., Mexico",tel:"",co:[18.7301,-99.3287]},
+  {n:"taxis los arbolitos",m:"Coatetelco",t:"transporte",d:"Av. Morelos, Centro, 62606 Coatetelco Centro, Mor., Mexico",tel:"737 373 2194",co:[18.7300,-99.3287]},
+  {n:"Terminal Pullman De Morelos",m:"Coatetelco",t:"transporte",d:"62600, Emiliano Zapata, 62600 Miacatlán, Mor., Mexico",tel:"",co:[18.7680,-99.3561]},
+  {n:"TERMINAL PULLMAN DE MORELOS",m:"Coatetelco",t:"transporte",d:"62630 Mazatepec, Morelos, Mexico",tel:"",co:[18.7329,-99.3665]},
+  {n:"TAXIS MAZATEPEC",m:"Coatetelco",t:"transporte",d:"Guerrero 44, 62634 Mazatepec, Mor., Mexico",tel:"737 373 1174",co:[18.7271,-99.3645]},
+  {n:"TAXIS MAZATEPEC",m:"Coatetelco",t:"transporte",d:"62630 Mazatepec, Morelos, Mexico",tel:"737 373 1174",co:[18.7329,-99.3666]},
+  {n:"Central TELMEX MNC",m:"Coatetelco",t:"transporte",d:"Cuauhtémoc 6-7, Centro, 62600 Miacatlán, Mor., Mexico",tel:"",co:[18.7684,-99.3580]},
+  {n:"Paqueteria Express",m:"Coatetelco",t:"transporte",d:"No Reelección Sur, Centro, 62600 Miacatlán, Mor., Mexico",tel:"",co:[18.7672,-99.3600]},
+  {n:"Parada de Taxis",m:"Coatetelco",t:"transporte",d:"Av. Francisco Indalecio Madero 13-11, Centro, 62600 Miacatlán, Mor., Mexico",tel:"",co:[18.7697,-99.3606]},
+  {n:"Parada de Taxis",m:"Coatetelco",t:"transporte",d:"México 166 54-114, Centro, 62600 Miacatlán, Mor., Mexico",tel:"",co:[18.7670,-99.3578]},
+  {n:"Regularizacion Y Compra-venta De Predios Urbanos Y Rusticos",m:"Coatetelco",t:"transporte",d:"Alpuyeca - Grutas de Cacahuamilpa 24, La Toma, 62630 Tetecala, Mor., Mexico",tel:"800 021 1000",co:[18.7359,-99.3679]},
+  // COATLáN DEL RÍO - TRANSPORTE,
+  {n:"Servicio automotriz fredy",m:"Coatlán del Río",t:"transporte",d:"Alpuyeca - Grutas de Cacahuamilpa, 62615 Cocoyotla, Mor., Mexico",tel:"734 125 0437",co:[18.7541,-99.4590]},
+  // CUAUTLA - TRANSPORTE,
+  {n:"Base de Camiones anaranjados Xochimilco-cuautla",m:"Cuautla",t:"transporte",d:"frente ala gasolinería, Carr Federal México-Cuautla, Empleado Postal, 62747 Cuautla, Mor., Mexico",tel:"55 3695 1487",co:[18.8498,-98.9376]},
+  {n:"FLETES Y MUDANZAS EN CUAUTLA.",m:"Cuautla",t:"transporte",d:"Paracho 1169, Lazaro Cardenas, 62757 Cuautla, Mor., Mexico",tel:"735 246 3681",co:[18.8586,-98.9362]},
+  {n:"Biosistemas para el Autotransporte Mena SA",m:"Cuautla",t:"transporte",d:"Libramiento Oriente y Vias, Del Ferrocarril 13, Fracc Piedra Grande, Cuautlixco, 62749 Cuautla, Mor., Mexico",tel:"735 114 0680",co:[18.8452,-98.9292]},
+  {n:"RENTA DE CAMIONETAS DE CARGA H.D.",m:"Cuautla",t:"transporte",d:"Santa Rosa, 62747 Cuautla, Morelos, Mexico",tel:"",co:[18.8318,-98.9385]},
+  {n:"Transportes Figueroa",m:"Cuautla",t:"transporte",d:"Constancio Farfán 41, Emiliano Zapata, 62744 Cuautla, Mor., Mexico",tel:"",co:[18.8243,-98.9474]},
+  {n:"Fletes y mudanzas Onix",m:"Cuautla",t:"transporte",d:"Carr Federal México-Cuautla 147, Tetelcingo, 62757 Cuautla, Mor., Mexico",tel:"",co:[18.8638,-98.9312]},
+  {n:"The terminal vias South",m:"Cuautla",t:"transporte",d:"62749, Av Reforma 55, Cuautlixco, 62747 Cuautla, Mor., Mexico",tel:"735 210 8812",co:[18.8380,-98.9418]},
+  {n:"Transportes Morelenses",m:"Cuautla",t:"transporte",d:"Calle Ketzal S/N, colonia del empleado, 62748 Cuautla, Mor., Mexico",tel:"735 206 9467",co:[18.8513,-98.9593]},
+  {n:"Autobuses",m:"Cuautla",t:"transporte",d:"Av Reforma 102, Cuautlixco, 62747 Cuautla, Mor., Mexico",tel:"",co:[18.8382,-98.9418]},
+  {n:"Fletes y Mudanzas Ferreni",m:"Cuautla",t:"transporte",d:"Felipe Neri 24, Emiliano Zapata, 62744 Cuautla, Mor., Mexico",tel:"777 258 4972",co:[18.8262,-98.9439]},
+  {n:"RADIO TAXIS EJECUTIVOS DE CUAUTLA",m:"Cuautla",t:"transporte",d:"Av Insurgentes 227-B, Emiliano Zapata, 62744 Cuautla, Mor., Mexico",tel:"735 353 2022",co:[18.8261,-98.9501]},
+  {n:"SCM Mensajería Cuautla",m:"Cuautla",t:"transporte",d:"Av Reforma 127, Emiliano Zapata, 62744 Cuautla, Mor., Mexico",tel:"735 398 6024",co:[18.8238,-98.9473]},
+  {n:"Transporte Ruta 85",m:"Cuautla",t:"transporte",d:"Carr Federal México-Cuautla 381, Empleado Postal, 62748 Cuautla, Mor., Mexico",tel:"",co:[18.8488,-98.9382]},
+  {n:"TRANSPORTES TERRESTRES LOS VOLCANES",m:"Cuautla",t:"transporte",d:"Av Insurgentes 375, Guadalupe Victoria, 62746 Cuautla, Mor., Mexico",tel:"",co:[18.8291,-98.9490]},
+  {n:"BASE CENTRO RUTA 8 IZTACCIHUATL Y PEDREGOZA.",m:"Cuautla",t:"transporte",d:"Francisco I. Madero 316, Emiliano Zapata, 62744 Cuautla, Mor., Mexico",tel:"",co:[18.8246,-98.9491]},
+  {n:"Los Arcos de Cuautla",m:"Cuautla",t:"transporte",d:"Empleado Postal, 62748 Cuautla, Morelos, Mexico",tel:"",co:[18.8491,-98.9382]},
+  {n:"Gran turismo ejecutivo",m:"Cuautla",t:"transporte",d:"Guadalupe Victoria #25 Última casa antes del bareanco, Juan Morales, 62826 Cuautla, Mor., Mexico",tel:"735 243 3069",co:[18.8100,-98.9250]},
+  {n:"Agencia de Fletes y Mudanzas de Morelos",m:"Cuautla",t:"transporte",d:"Felipe Neri 32, Emiliano Zapata, 62744 Cuautla, Mor., Mexico",tel:"735 264 9022",co:[18.8258,-98.9441]},
+  // CUERNAVACA - TRANSPORTE,
+  {n:"Specialized Transport argoz",m:"Cuernavaca",t:"transporte",d:"alle C. Coajomulco No. 206, Camino Antiguo a Ocotepec, Col. Ocotepec, Ocotepec, 62220 Cuernavaca, Mor., Mexico",tel:"777 313 1886",co:[18.9692,-99.2318]},
+  {n:"Transportes León-México",m:"Cuernavaca",t:"transporte",d:"Av. Plan de Ayala 846, Jacarandas, 62420 Cuernavaca, Mor., Mexico",tel:"777 309 3703",co:[18.9239,-99.2173]},
+  {n:"AUTOS camionetas y transportes de carga de México",m:"Cuernavaca",t:"transporte",d:"Sinaloa & Avenida San Diego, zona 1, Lomas de Vista Hermosa, 62293 Cuernavaca, Mor., Mexico",tel:"",co:[18.9414,-99.2185]},
+  {n:"Central de camiones Cuernavaca",m:"Cuernavaca",t:"transporte",d:"ETN Turistar, Av. José María Morelos y Pavón Nte. 329, Cuernavaca Centro, Centro, 72000 Cuernavaca, Mor., Mexico",tel:"",co:[18.9260,-99.2383]},
+  {n:"Fletes y Mudanzas Cuernavaca García",m:"Cuernavaca",t:"transporte",d:"Av. Plan de Ayala SN, Vicente Guerrero, 62430 Cuernavaca, Mor., Mexico",tel:"777 191 6664",co:[18.9238,-99.2131]},
+  {n:"FLETES Y MUDANZAS JB",m:"Cuernavaca",t:"transporte",d:"C. 2 1, Chapultepec, 62360 Cuernavaca, Mor., Mexico",tel:"777 288 5650",co:[18.9258,-99.2074]},
+  {n:"Mudanzas Cuernavaca El Rayo de Morelos",m:"Cuernavaca",t:"transporte",d:"C. Nueva Suecia, Lomas de Cortes, 62240 Cuernavaca, Mor., Mexico",tel:"777 601 2588",co:[18.9544,-99.2200]},
+  {n:"Mudanzas Cuernavaca B. Exprés",m:"Cuernavaca",t:"transporte",d:"C. Cuauhtémoc, Lomas de la Selva, 62250 Cuernavaca, Mor., Mexico",tel:"777 167 6397",co:[18.9400,-99.2369]},
+  {n:"Mudanzas Cuernavaca MORELOS",m:"Cuernavaca",t:"transporte",d:"Subida a Chalma ,1204 lomas tetela, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"777 114 3661",co:[18.9232,-99.2379]},
+  {n:"Mudanzas",m:"Cuernavaca",t:"transporte",d:"Calle libertad, Jesús Urueta esq, Carolina, 62190 Cuernavaca, Mor., Mexico",tel:"777 231 1015",co:[18.9323,-99.2447]},
+  {n:"Fletes y Mudanzas Cuernavaca Express",m:"Cuernavaca",t:"transporte",d:"Estrella 19, Bosques de Cuernavaca, 62340 Cuernavaca, Mor., Mexico",tel:"777 347 3751",co:[18.9509,-99.2064]},
+  {n:"Fletes y mudanzas cuernavaca",m:"Cuernavaca",t:"transporte",d:"28 de Noviembre, Chipitlan, 62070 Cuernavaca, Mor., Mexico",tel:"777 469 1393",co:[18.8974,-99.2298]},
+  {n:"Fletes y mudanzas \"lino\"",m:"Cuernavaca",t:"transporte",d:"Carretera a Tepoztlán, Tepepan, 62210 Cuernavaca, Mor., Mexico",tel:"",co:[18.9694,-99.2185]},
+  {n:"Autobuses Turísticos de Morelos",m:"Cuernavaca",t:"transporte",d:"C. Ejido, Col. Satelite, Cuauhnahuac, 62460 Cuernavaca, Mor., Mexico",tel:"777 100 1263",co:[18.9141,-99.2039]},
+  {n:"Autobuses Turisticos Bus Tour Morelos",m:"Cuernavaca",t:"transporte",d:"Lázaro Cárdenas 145, Antonio Barona, 62329 Cuernavaca, Mor., Mexico",tel:"777 119 6162",co:[18.9501,-99.1914]},
+  {n:"Mi Bus Terminal Centro",m:"Cuernavaca",t:"transporte",d:"Mariano Abasolo 102, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"800 022 8000",co:[18.9188,-99.2363]},
+  {n:"Mudanzas de Morelos sa de cv",m:"Cuernavaca",t:"transporte",d:"Glorieta chapultepec, Bjd. de Chapultepec esquina, Chapultepec, 62450 Cuernavaca, Mor., Mexico",tel:"777 503 9321",co:[18.9225,-99.2100]},
+  {n:"Transportes Ayala De Curvanaca Sa De Cv",m:"Cuernavaca",t:"transporte",d:"Calle 3 Cruces 4, Ahuatepec, 62220 Cuernavaca, Mor., Mexico",tel:"777 317 3349",co:[18.9636,-99.2120]},
+  {n:"Secretaria de Movilidad y Transporte",m:"Cuernavaca",t:"transporte",d:"Av. Plan de Ayala 825, Teopanzolco, 62350 Cuernavaca, Mor., Mexico",tel:"777 329 6500",co:[18.9243,-99.2185]},
+  {n:"Transport Terminal Mibus S.A. de C.V.",m:"Cuernavaca",t:"transporte",d:"Av. Adolfo López Mateos 110, Gualupita, 62280 Cuernavaca, Mor., Mexico",tel:"800 624 0360",co:[18.9278,-99.2316]},
+  {n:"Pullman de Morelos - La Selva",m:"Cuernavaca",t:"transporte",d:"Baja California Sur, Gualupita, 62280 Cuernavaca, Mor., Mexico",tel:"",co:[18.9302,-99.2312]},
+  {n:"TER - Estrella Roja de Cuautla",m:"Cuernavaca",t:"transporte",d:"Calle Gral. H. Galeana 401, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"777 318 5934",co:[18.9155,-99.2350]},
+  {n:"Autobuses Primera Clase México - Zacatepec Lineas Laser",m:"Cuernavaca",t:"transporte",d:"Av. Adolfo López Mateos 110, Gualupita, 62400 Cuernavaca, Mor., Mexico",tel:"777 314 3656",co:[18.9278,-99.2316]},
+  {n:"Transporte de Turismo",m:"Cuernavaca",t:"transporte",d:"C. 16 de Septiembre 55, Otilio Montaño, 00000 Cuernavaca, Mor., Mexico",tel:"777 319 8234",co:[18.9128,-99.2249]},
+  {n:"Autobuses ORO",m:"Cuernavaca",t:"transporte",d:"Blvd. Paseo Cuauhnáhuac Km. 2.5, Bugambilias, 62480 Cuernavaca, Mor., Mexico",tel:"735 352 3555",co:[18.9176,-99.1883]},
+  {n:"Central de Cuernavaca Autobuses",m:"Cuernavaca",t:"transporte",d:"Av. José María Morelos 329, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"55 4440 3187",co:[18.9261,-99.2385]},
+  {n:"Central de Autobuses ETN Turistar en Cuernavaca",m:"Cuernavaca",t:"transporte",d:"Av. José María Morelos y Pavón Nte. 329, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"800 800 0386",co:[18.9261,-99.2383]},
+  {n:"Central de Autobuses Cuernavaca Futura",m:"Cuernavaca",t:"transporte",d:"Av. Morelos 329, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"55 4440 3106",co:[18.9260,-99.2384]},
+  {n:"Pullman de Morelos Terminal Dragón - IMSS",m:"Cuernavaca",t:"transporte",d:"Av. Plan de Ayala 1510, Chapultepec, 62450 Cuernavaca, Mor., Mexico",tel:"800 624 0360",co:[18.9213,-99.2053]},
+  {n:"Autobuses Elite: Estrella Blanca",m:"Cuernavaca",t:"transporte",d:"José Ma. Morelos y Pavón 230, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"55 4440 3187",co:[18.9263,-99.2383]},
+  {n:"Mudanzas Colín",m:"Cuernavaca",t:"transporte",d:"Juan Pablo II Sn, Vista Hermosa, 62290 Cuernavaca, Mor., Mexico",tel:"777 315 4277",co:[18.9364,-99.2123]},
+  {n:"Fletes y Mudanzas El Guero",m:"Cuernavaca",t:"transporte",d:"Av. Domingo Diez 605, El Empleado, 62250 Cuernavaca, Mor., Mexico",tel:"777 162 7203",co:[18.9449,-99.2353]},
+  {n:"Fletes Cabrera",m:"Cuernavaca",t:"transporte",d:"Al Ejido, 62028 Ajuchitlán, Mor., Mexico",tel:"",co:[18.9190,-99.2517]},
+  {n:"Autobuses Ometochtli",m:"Cuernavaca",t:"transporte",d:"Av. Adolfo López Mateos 208, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"777 480 7743",co:[18.9252,-99.2322]},
+  {n:"terminal cuer-tepoz OMETOCHTLI",m:"Cuernavaca",t:"transporte",d:"Cuernavaca Centro, Centro, 62280 Cuernavaca, Mor., Mexico",tel:"",co:[18.9253,-99.2321]},
+  {n:"Elanka Transportes",m:"Cuernavaca",t:"transporte",d:"Calz. de Leandro Valle Ote. 503-Int. 3, Miraval, 62270 Cuernavaca, Mor., Mexico",tel:"777 129 1291",co:[18.9291,-99.2352]},
+  {n:"Mudanzas Bahena Cuernavaca",m:"Cuernavaca",t:"transporte",d:"Cáncer, Zodiaco, 62380 Cuernavaca, Mor., Mexico",tel:"777 279 8796",co:[18.9280,-99.1865]},
+  {n:"Cuernatravel, transporte y turismo",m:"Cuernavaca",t:"transporte",d:"Lázaro Cárdenas 145, Antonio Barona, 62320 Cuernavaca, Mor., Mexico",tel:"777 203 5802",co:[18.9500,-99.1914]},
+  {n:"Mudanzas cuernavaca",m:"Cuernavaca",t:"transporte",d:"Juan Pablo II, Vista Hermosa, 62290 Cuernavaca, Mor., Mexico",tel:"777 244 4818",co:[18.9422,-99.2074]},
+  {n:"Mudanzas Hunter Cuernavaca",m:"Cuernavaca",t:"transporte",d:"Av Río Mayo 1100, Vista Hermosa, 62290 Cuernavaca, Mor., Mexico",tel:"777 315 4434",co:[18.9337,-99.2143]},
+  {n:"Logística YAEFA",m:"Cuernavaca",t:"transporte",d:"Lerdo de Tejada, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"777 285 0060",co:[18.9249,-99.2380]},
+  {n:"Cuernavaca Centro Terminal de Autobuses",m:"Cuernavaca",t:"transporte",d:"Av. Adolfo López Mateos 899, Cuernavaca Centro, Chipitlan, 62070 Cuernavaca, Mor., Mexico",tel:"",co:[18.9253,-99.2321]},
+  {n:"Terminal de Cuernavaca",m:"Cuernavaca",t:"transporte",d:"Central de Autobuses Oro Cuauhnáhuac, Av. Cuauhnáhuac Km. 2.5, Bugambilias, 62390 Jiutepec, Mor., Mexico",tel:"",co:[18.9179,-99.1883]},
+  {n:"Autobuses Estrella de Oro (Las Palmas)",m:"Cuernavaca",t:"transporte",d:"José Ma. Morelos y Pavón 179, Las Palmas, 62050 Cuernavaca, Mor., Mexico",tel:"777 312 3055",co:[18.9084,-99.2332]},
+  {n:"Pullman de Morelos",m:"Cuernavaca",t:"transporte",d:"C.P62000, 62000, Mariano Abasolo 12, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"751 396 0172",co:[18.9185,-99.2362]},
+  {n:"Estrella de Oro S.A. de C.V.",m:"Cuernavaca",t:"transporte",d:"José Ma. Morelos y Pavón 179, Las Palmas, 62050 Cuernavaca, Mor., Mexico",tel:"777 312 3055",co:[18.9083,-99.2332]},
+  {n:"Terminal de Autobuses Verdes de Morelos",m:"Cuernavaca",t:"transporte",d:"Felipe Rivera Crespo 18, Satélite, Cuauhnahuac, 62460 Cuernavaca, Mor., Mexico",tel:"",co:[18.9212,-99.2076]},
+  {n:"Cuernabus",m:"Cuernavaca",t:"transporte",d:"Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"777 135 0468",co:[18.9204,-99.2356]},
+  {n:"Tú taxi cuernavaca transporte privado",m:"Cuernavaca",t:"transporte",d:"Carlos Cuauglia 404, Gualupita, 62280 Cuernavaca, Mor., Mexico",tel:"777 374 3563",co:[18.9311,-99.2336]},
+  {n:"Central Turistica",m:"Cuernavaca",t:"transporte",d:"Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"777 328 1064",co:[18.9222,-99.2355]},
+  {n:"Terminal ADO Estrella de Oro Cuernavaca",m:"Cuernavaca",t:"transporte",d:"José María Morelos 179, Las Palmas, 62050 Cuernavaca, Mor., Mexico",tel:"777 218 9072",co:[18.9084,-99.2332]},
+  {n:"Autobuses Chihuahuenses Cuernavaca",m:"Cuernavaca",t:"transporte",d:"Av. José María Morelos 329, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"55 4440 3106",co:[18.9260,-99.2387]},
+  {n:"Terminal Estrella de Oro Cuernavaca",m:"Cuernavaca",t:"transporte",d:"José Ma. Morelos y Pavón 179, Las Palmas, 62050 Cuernavaca, Mor., Mexico",tel:"777 194 9066",co:[18.9084,-99.2332]},
+  {n:"Mi Mudanza",m:"Cuernavaca",t:"transporte",d:"Av Río Mayo, Vista Hermosa, 62290 Cuernavaca, Mor., Mexico",tel:"777 313 5399",co:[18.9349,-99.2078]},
+  {n:"Mudanzas Compartidas Cuernavaca",m:"Cuernavaca",t:"transporte",d:"Av. San Juan 405, Vicente Guerrero, 62430 Cuernavaca, Mor., Mexico",tel:"777 231 1015",co:[18.9245,-99.2128]},
+  {n:"Etn",m:"Cuernavaca",t:"transporte",d:"Av. Emiliano Zapata 1001, Buena Vista, 62130 Cuernavaca, Mor., Mexico",tel:"",co:[18.9635,-99.2467]},
+  {n:"Transportes Unidos de Huitzilac",m:"Cuernavaca",t:"transporte",d:"Av. Adolfo López Mateos, Cuernavaca Centro, Gualupita, 62280 Cuernavaca, Mor., Mexico",tel:"",co:[18.9250,-99.2327]},
+  {n:"Mensajeria y paqueteria pullman",m:"Cuernavaca",t:"transporte",d:"Mariano Abasolo 100, Cuernavaca Centro, Centro, 62000 Cuernavaca, Mor., Mexico",tel:"777 314 3650",co:[18.9187,-99.2366]},
+  {n:"Pipas de Agua Potable Cuernavaca",m:"Cuernavaca",t:"transporte",d:"Prol, C. Gral.Francisco Villa, Santa María Ahuacatitlán, 62100 Cuernavaca, Mor., Mexico",tel:"777 262 6895",co:[18.9744,-99.2644]},
+  {n:"Secretariat of Communications and Transportation",m:"Cuernavaca",t:"transporte",d:"Morelos Cuernavaca - Tepoztlan. km 1.2, Chamilpa, 62210 Cuernavaca, Mor., Mexico",tel:"777 176 3500",co:[18.9679,-99.2380]},
+  {n:"Autobuses cuernavaca - cuautla",m:"Cuernavaca",t:"transporte",d:"Av. Domingo Diez 1614, Maravillas, 62230 Cuernavaca, Mor., Mexico",tel:"",co:[18.9611,-99.2382]},
+  {n:"Ruta 12 base Santa María Ahuacatitlán",m:"Cuernavaca",t:"transporte",d:"De Avicultura 78, Santa María Ahuacatitlán, 62100 Cuernavaca, Mor., Mexico",tel:"",co:[18.9826,-99.2514]},
+  {n:"Ruta 3 base Lomas de Tzompantle",m:"Cuernavaca",t:"transporte",d:"16 de Septiembre 6-38, Lomas del Tzompantle, 62157 Cuernavaca, Mor., Mexico",tel:"",co:[18.9578,-99.2668]},
+  {n:"Trasportes Turisticos Rocha",m:"Cuernavaca",t:"transporte",d:"62210, Av. Defensa Nacional 20, Morelos, 62210 Cuernavaca, Mor., Mexico",tel:"",co:[18.9798,-99.2408]},
+  {n:"Estacionamiento exclusivo del recinto",m:"Cuernavaca",t:"transporte",d:"Santa María Ahuacatitlán, 62100 Cuernavaca, Morelos, Mexico",tel:"",co:[18.9817,-99.2554]},
+  {n:"Central de Autobuses Oro Cuauhnáhuac",m:"Cuernavaca",t:"transporte",d:"Av. Cuauhnáhuac Km. 2.5, Bugambilias, 62390 Jiutepec, Mor., Mexico",tel:"",co:[18.9176,-99.1883]},
+  {n:"Terminal TER",m:"Cuernavaca",t:"transporte",d:"Federal a Tepoztlan 12, Chamilpa, 62210 Cuernavaca, Mor., Mexico",tel:"",co:[18.9683,-99.2392]},
+  {n:"Fletes Y Mudanzas de Angel",m:"Cuernavaca",t:"transporte",d:"Calle Nacional 2, Buena Vista, 62200 Cuernavaca, Mor., Mexico",tel:"777 159 8046",co:[18.9687,-99.2479]},
+  {n:"Dirección de transporte público, SMYT",m:"Cuernavaca",t:"transporte",d:"Teopanzolco, 62350 Cuernavaca, Mor., Mexico",tel:"",co:[18.9244,-99.2185]},
+  {n:"Transporte Turistico MexActivo",m:"Cuernavaca",t:"transporte",d:"C. Miguel Hidalgo Pueblo Atlacomulco 51, Atlacomulco, 62560 Jiutepec, Mor., Mexico",tel:"55 7958 6360",co:[18.9038,-99.2093]},
+  {n:"Transportes de Morelos",m:"Cuernavaca",t:"transporte",d:"C. de la Luz 50, Chapultepec, 62450 Cuernavaca, Mor., Mexico",tel:"777 203 8777",co:[18.9150,-99.2108]},
+  {n:"Secretaría de Movilidad y Transporte",m:"Cuernavaca",t:"transporte",d:"Cuauhtemotzin 1, Club de Golf de Cuernavaca, 62030 Cuernavaca, Mor., Mexico",tel:"735 148 8899",co:[18.9156,-99.2376]},
+  // EMILIANO ZAPATA - TRANSPORTE,
+  {n:"YOSHMAR",m:"Emiliano Zapata",t:"transporte",d:"Carretera aeropuerto tepetzingo QRW4+V5 Crucero Tezoyuca, 62767 Tezoyuca, Mor., Mexico",tel:"777 385 6823",co:[18.7971,-99.1945]},
+  {n:"Fletes y Mudanzas Emiliano Zapata",m:"Emiliano Zapata",t:"transporte",d:"Vía Férrea a Jiutepec 58, El Tomatal, 62760 Emiliano Zapata, Mor., Mexico",tel:"777 132 8192",co:[18.8378,-99.1793]},
+  {n:"Gruas Angeles",m:"Emiliano Zapata",t:"transporte",d:"C. 5 de Mayo, Modesto Rangel, 62766 Emiliano Zapata, Mor., Mexico",tel:"777 368 5309",co:[18.8354,-99.1825]},
+  {n:"Sitio Taxis Musico",m:"Emiliano Zapata",t:"transporte",d:"C. Benito Juárez, Centro, 62760 Emiliano Zapata, Mor., Mexico",tel:"777 368 2067",co:[18.8373,-99.1826]},
+  {n:"Pullman de Morelos",m:"Emiliano Zapata",t:"transporte",d:"Plaza Chedraui, Constitución, Campo Nuevo, 62760 Emiliano Zapata, Mor., Mexico",tel:"751 396 0172",co:[18.8321,-99.1878]},
+  {n:"Radio Taxi Concesiones Emanuel",m:"Emiliano Zapata",t:"transporte",d:"Zaragoza 118, Modesto Rangel, 62760 Emiliano Zapata, Mor., Mexico",tel:"777 368 6169",co:[18.8304,-99.1818]},
+  {n:"OMSA Chapultepec Terminal Amate",m:"Emiliano Zapata",t:"transporte",d:"Amatitlán 15, El Vigilante, 62766 Emiliano Zapata, Mor., Mexico",tel:"",co:[18.8199,-99.1974]},
+  {n:"Terminal de camiones Ruta 20",m:"Emiliano Zapata",t:"transporte",d:"Tejalpa - Jojutla 20, Cuauhtemoc, 62767 Tezoyuca, Mor., Mexico",tel:"",co:[18.8037,-99.1967]},
+  // HUEYAPAN - TRANSPORTE,
+  {n:"Radio Taxis ''Sto. Domingo''",m:"Hueyapan",t:"transporte",d:"San Miguel, 62810 Hueyapan, Morelos, Mexico",tel:"",co:[18.8850,-98.6890]},
+  {n:"Modulo de Seguridad del Municipio Indígena de Hueyapan, Morelos",m:"Hueyapan",t:"transporte",d:"Tres Cruces, San Bartolo, 62810 Barrio de San Miguel, Mor., Mexico",tel:"731 688 6977",co:[18.8850,-98.7009]},
+  {n:"Estacionamiento hueyapan",m:"Hueyapan",t:"transporte",d:"Paseo 2-27, San Miguel, 62810 Barrio de San Miguel, Mor., Mexico",tel:"",co:[18.8848,-98.6893]},
+  {n:"Ayuntamiento de Hueyapan",m:"Hueyapan",t:"transporte",d:"Indígena de, De Los Centenarios N, San Miguel, 62810 Barrio de San Miguel, Mor., Mexico",tel:"",co:[18.8854,-98.6907]},
+  // HUITZILAC - TRANSPORTE,
+  {n:"TRANSPORTES 3H",m:"Huitzilac",t:"transporte",d:"Lauro Ortega Martínez, Tres Marias, 62515 Tres Marías, Mor., Mexico",tel:"",co:[19.0573,-99.2436]},
+  {n:"Radio Taxi Tres Marías",m:"Huitzilac",t:"transporte",d:"San José SN, 62515 Huitzilac, Mor., Mexico",tel:"739 393 0301",co:[19.0282,-99.2679]},
+  {n:"Taxis Magi",m:"Huitzilac",t:"transporte",d:"Carr. Federal A Cuernavaca 64, 62510 Tezontlalpa, Mor., Mexico",tel:"777 232 6416",co:[19.0077,-99.2492]},
+  {n:"Fundación Radio Taxi Tres Marías A.C.",m:"Huitzilac",t:"transporte",d:"Cuauhtémoc 86, Tres Marias, 62510 Huitzilac, Mor., Mexico",tel:"739 393 0439",co:[19.0540,-99.2439]},
+  {n:"Terminal Tres marias federal, Pullman de Morelos",m:"Huitzilac",t:"transporte",d:"Cuauhtémoc 26, Tres Marias, 62515 Tres Marías, Mor., Mexico",tel:"739 393 5307",co:[19.0544,-99.2440]},
+  {n:"Terminal de Autobuses Pullman de Morelos. Tres Marías",m:"Huitzilac",t:"transporte",d:"Cuauhtémoc 26, Tres Marias, 62515 Tres Marías, Mor., Mexico",tel:"",co:[19.0544,-99.2440]},
+  {n:"Radio Taxis Línea San José",m:"Huitzilac",t:"transporte",d:"Av. Zempoala 113, Tres Marias, 62515 Tres Marías, Mor., Mexico",tel:"739 393 0301",co:[19.0542,-99.2428]},
+  {n:"Radio Taxi San Juan",m:"Huitzilac",t:"transporte",d:"62515, CARR.FEDERAL A CUERNAVACA, TRES MARIAS, Centro, Tres Marias, 62515 Tresmarias, Mor., Mexico",tel:"",co:[19.0541,-99.2443]},
+  // JANTETELCO - TRANSPORTE,
+  {n:"Parada De Autobuses SUR VOLCANES",m:"Jantetelco",t:"transporte",d:"Cuautla 75, Miguel Lopez de Nava, 62933 Jonacatepec de Leandro Valle, Mor., Mexico",tel:"",co:[18.6921,-98.8019]},
+  {n:"Terminal Oro",m:"Jantetelco",t:"transporte",d:"62972 Amayuca, Morelos, Mexico",tel:"222 450 6605",co:[18.7174,-98.7948]},
+  {n:"Sitio de Taxi Crucero Amayuca",m:"Jantetelco",t:"transporte",d:"Gral José María Morelos y Pavón 1, 62970 Jantetelco, Mor., Mexico",tel:"731 351 3289",co:[18.7162,-98.7776]},
+  {n:"Depósito Mi Central",m:"Jantetelco",t:"transporte",d:"Tepoztlan 470, Miguel Lopez de Nava, 62933 Jonacatepec de Leandro Valle, Mor., Mexico",tel:"735 690 1165",co:[18.6941,-98.8019]},
+  // JIUTEPEC - TRANSPORTE,
+  {n:"Transportes Civac S.C.",m:"Jiutepec",t:"transporte",d:"Arcelia 2, Porvenir, 62000 Cuernavaca, Mor., Mexico",tel:"777 319 3618",co:[18.9168,-99.1769]},
+  {n:"Truck Express Civac",m:"Jiutepec",t:"transporte",d:"Av. Centenario, Civac, 62578 Jiutepec, Mor., Mexico",tel:"",co:[18.9109,-99.1687]},
+  {n:"CARIBE PORTEADORES",m:"Jiutepec",t:"transporte",d:"Yautepec de Zaragoza - Cuautla 12, 62733 Yautepec de Zaragoza, Mor., Mexico",tel:"777 350 8162",co:[18.8702,-99.0625]},
+  {n:"Fletes, Logística y Mudanzas Ramírez",m:"Jiutepec",t:"transporte",d:"Blvd. Paseo Cuauhnáhuac 3, Moctezuma, 62579 Jiutepec, Mor., Mexico",tel:"777 104 3343",co:[18.8983,-99.1718]},
+  {n:"Transportes Terrestres Abaran SA de CV",m:"Jiutepec",t:"transporte",d:"C. 13 Este 540, Civac, 62550 Jiutepec, Mor., Mexico",tel:"777 321 5911",co:[18.9156,-99.1704]},
+  {n:"Transportes CASEMA",m:"Jiutepec",t:"transporte",d:"BLVD CUAUNAHUAC KM 14.5 A ORILLA DE CARRETERA AMADOR SALAZAR COL.JOSE LOPEZ PORTILLI, 62733 Jiutepec, Mor., Mexico",tel:"55 1544 0370",co:[18.8939,-99.1369]},
+  {n:"patio marva cuernavaca",m:"Jiutepec",t:"transporte",d:"62733 Yautepec de Zaragoza, Morelos, Mexico",tel:"",co:[18.8626,-99.0886]},
+  {n:"Fletes Y Mudanzas Tauro",m:"Jiutepec",t:"transporte",d:"Bugambilia 8, San Francisco Texcalpan, 62573 Cuernavaca, Mor., Mexico",tel:"777 536 4651",co:[18.8934,-99.1558]},
+  {n:"Transportes Disayri",m:"Jiutepec",t:"transporte",d:"La Cerillera, 62554 Jiutepec, Mor., Mexico",tel:"",co:[18.8905,-99.1674]},
+  {n:"Autos y Camiones del Rio",m:"Jiutepec",t:"transporte",d:"Jiutepec - Yautepec de Zaragoza Km 25, Emiliano Zapata, 62733 Yautepec, Mor., Mexico",tel:"735 394 7359",co:[18.8714,-99.0760]},
+  {n:"Fletes y Mudanzas Express",m:"Jiutepec",t:"transporte",d:"Cedro 2, Otilio Montaño, 62577 Jiutepec, Mor., Mexico",tel:"777 261 3867",co:[18.9210,-99.1758]},
+  {n:"Fletes y Mudanzas San Francisco",m:"Jiutepec",t:"transporte",d:"C. Ciprés, San Francisco Texcalpan, 62573 Jiutepec, Mor., Mexico",tel:"777 218 8299",co:[18.8917,-99.1550]},
+  {n:"Fletes y Mudanzas Sal-Ba",m:"Jiutepec",t:"transporte",d:"Plaza de la asunción tejalpa Calle de la Paz #10 tejalpa centro, Tejalpa, 62570 Cuernavaca, Mor., Mexico",tel:"777 789 4695",co:[18.9022,-99.1696]},
+  {n:"Transporte Turistico Y Ejecutivo Primavera",m:"Jiutepec",t:"transporte",d:"C. 6 6, Puente Blanco, 62577 Jiutepec, Mor., Mexico",tel:"777 135 7183",co:[18.9078,-99.1807]},
+  {n:"Terminal De Autobuses OCC Y Pullman De Morelos Yautepec",m:"Jiutepec",t:"transporte",d:"Virginia Fábregas 34, Centro, 62731 Yautepec de Zaragoza, Mor., Mexico",tel:"735 394 0041",co:[18.8879,-99.0630]},
+  {n:"Fletes Y Mudanzas Salinas",m:"Jiutepec",t:"transporte",d:"C, Lerdo de Tejada 79, Los Pinos Tejalpa, 62570 Jiutepec, Mor., Mexico",tel:"777 134 3285",co:[18.9041,-99.1663]},
+  {n:"Servicio de transporte",m:"Jiutepec",t:"transporte",d:"águilas 133, El Tarian, 62577 Jiutepec, Mor., Mexico",tel:"777 302 1335",co:[18.9031,-99.1808]},
+  {n:"Fletes Consolidados México",m:"Jiutepec",t:"transporte",d:"Av. Centenario 54-Bodega 4, Pedregal Tejalpa, 62570 Jiutepec, Mor., Mexico",tel:"777 383 0954",co:[18.9074,-99.1686]},
+  {n:"TRUCKING CONNECT",m:"Jiutepec",t:"transporte",d:"C. 12 Este, Civac Kovas, 62500 Jiutepec, Mor., Mexico",tel:"777 321 2796",co:[18.9194,-99.1601]},
+  {n:"Transporte Colectivo Ruta 23",m:"Jiutepec",t:"transporte",d:"Allende 10, Centro, 62730 Yautepec de Zaragoza, Mor., Mexico",tel:"735 394 1889",co:[18.8863,-99.0601]},
+  {n:"RENTA DE CAMIONETAS TURISTICAS TAXITOUR VIP",m:"Jiutepec",t:"transporte",d:"P.º de Las Margaritas 6, Bugambilias, 62577 Jiutepec, Mor., Mexico",tel:"777 195 9237",co:[18.9160,-99.1872]},
+  {n:"JIMENEZ TRUCKING",m:"Jiutepec",t:"transporte",d:"Tejupilco, Porvenir, 62577 Cuernavaca, Mor., Mexico",tel:"",co:[18.9170,-99.1765]},
+  {n:"GRUVER Camiones Cuernavaca",m:"Jiutepec",t:"transporte",d:"Blvd. Paseo Cuauhnáhuac Km.10.5, Pedregal de las Fuentes, 62550 Jiutepec, Mor., Mexico",tel:"777 320 1031",co:[18.8893,-99.1625]},
+  {n:"Pullman de Morelos",m:"Jiutepec",t:"transporte",d:"Insurgentes 28, Centro, 62550 Jiutepec, Mor., Mexico",tel:"751 396 0172",co:[18.8869,-99.1747]},
+  {n:"Pullman de Morelos, Terminal Tejalpa. Mexico Taxqueña",m:"Jiutepec",t:"transporte",d:"Blvd. Paseo Cuauhnáhuac KM 9.800, Tejalpa, 62550 Jiutepec, Mor., Mexico",tel:"777 320 6175",co:[18.8973,-99.1685]},
+  {n:"Transportes Turísticos Galassel Plús",m:"Jiutepec",t:"transporte",d:"No. Col. Independencia, C. 25 de Febrero 10, Independencia, 62550 Jiutepec, Mor., Mexico",tel:"777 323 0299",co:[18.8871,-99.1256]},
+  {n:"Transportes Mortur",m:"Jiutepec",t:"transporte",d:"62550, Los Lirios, 62550 Jiutepec, Mor., Mexico",tel:"777 418 3151",co:[18.8853,-99.1822]},
+  {n:"Central de autobuses Morelos",m:"Jiutepec",t:"transporte",d:"Cam. Viejo a San Gaspar 2, 62555 Col. el Naranjo, Mor., Mexico",tel:"",co:[18.8648,-99.1624]},
+  {n:"Fletes Y Mudanzas Cardenas",m:"Jiutepec",t:"transporte",d:"Fresno 20, San Francisco Texcalpan, 62573 Jiutepec, Mor., Mexico",tel:"777 289 3754",co:[18.8901,-99.1572]},
+  {n:"TERMINAL DE AUTOBUSES",m:"Jiutepec",t:"transporte",d:"Virginia Fábregas, Centro, 62731 Yautepec de Zaragoza, Mor., Mexico",tel:"",co:[18.8876,-99.0629]},
+  {n:"Secretaría de Movilidad y Transporte Delegación Jiutepec",m:"Jiutepec",t:"transporte",d:"Av. Centenario 96, Civac, 62578 Jiutepec, Mor., Mexico",tel:"",co:[18.9149,-99.1653]},
+  {n:"Transportes de Jiutepec",m:"Jiutepec",t:"transporte",d:"P.º Cedro, El Eden, 62386 Otilo Montaño, Mor., Mexico",tel:"777 560 9097",co:[18.9070,-99.1848]},
+  {n:"Transportes Estrella Blanca",m:"Jiutepec",t:"transporte",d:"Civac, C. 13 Este Mz 5 Lt 8, Otilio Montaño, 62578 Jiutepec, Mor., Mexico",tel:"777 319 4963",co:[18.9164,-99.1719]},
+  {n:"Centro de Envío FedEx",m:"Jiutepec",t:"transporte",d:"Insurgentes 104-Bodega 5, Moctezuma, 62550 Jiutepec, Mor., Mexico",tel:"55 5228 9904",co:[18.8969,-99.1717]},
+  {n:"Terminal TER, ORO Crucero",m:"Jiutepec",t:"transporte",d:"Blvd. Paseo Cuauhnáhuac 4104, Villas del Descanso, 62554 Jiutepec, Mor., Mexico",tel:"56 1160 5578",co:[18.8963,-99.1682]},
+  {n:"Fletes y Mudanzas Señor Transporte",m:"Jiutepec",t:"transporte",d:"P.º de Las Acacias, El Eden, 62577 Jiutepec, Mor., Mexico",tel:"777 235 6873",co:[18.9117,-99.1839]},
+  {n:"Equipo de Carga",m:"Jiutepec",t:"transporte",d:"Av. Texcal #10 Col Campo Morado, Unidad El Texcal, El Texcal, 62573 Jiutepec, Mor., Mexico",tel:"777 869 5298",co:[18.8948,-99.1414]},
+  {n:"Fletes y Mudanzas Fuentes",m:"Jiutepec",t:"transporte",d:"De La Paz 10, Tejalpa, 62570 Jiutepec, Mor., Mexico",tel:"777 159 4922",co:[18.9276,-99.1760]},
+  {n:"IMNASE Logística",m:"Jiutepec",t:"transporte",d:"Blvd. Paseo Cuauhnáhuac Km 10.5, Apatlaco, 62573 Jiutepec, Mor., Mexico",tel:"",co:[18.8933,-99.1653]},
+  {n:"UNIÓN DE PERMISIONARIOS DEL TRANSPORTE COLECTIVO RUTA 16 A.C. JIUTEPEC",m:"Jiutepec",t:"transporte",d:"C. Cesar Sandino 64, Josefa Ortiz de Dominguez, 62570 Jiutepec, Mor., Mexico",tel:"",co:[18.9064,-99.1514]},
+  {n:"Unión de Permisionarios del Transporte Colectivo de Pasajeros Ruta 16 A.c.",m:"Jiutepec",t:"transporte",d:"And. Central 2, Civac 1ra Secc, 62550 Jiutepec, Mor., Mexico",tel:"",co:[18.9211,-99.1672]},
+  {n:"Astrocamiones",m:"Jiutepec",t:"transporte",d:"Eje Nte. Sur Lote 2 A y 2 B, Civac, 62578 Jiutepec, Mor., Mexico",tel:"777 329 4350",co:[18.9117,-99.1719]},
+  {n:"Unidades Refacciones y Servicio Kenworth",m:"Jiutepec",t:"transporte",d:"Eucalipto 1000, Pedregal de las Fuentes, 62554 Jiutepec, Mor., Mexico",tel:"777 320 7721",co:[18.8910,-99.1643]},
+  {n:"RENTA DE CAMIONETAS TURÍSTICAS. TRAVEL TOUR VIP Y TRANSPORTE PRIMAVERA",m:"Jiutepec",t:"transporte",d:"Margaritas, P.º Bugambilias, Bugambilias, 62577 Jiutepec, Mor., Mexico",tel:"777 213 2365",co:[18.9159,-99.1873]},
+  {n:"Autobuses turísticos Grima",m:"Jiutepec",t:"transporte",d:"C. Uno 27-44, Los Tarianes, 62577 Jiutepec, Mor., Mexico",tel:"",co:[18.9105,-99.1825]},
+  {n:"Renta dee camionetas TURÍSTICOS CUERNAVACA",m:"Jiutepec",t:"transporte",d:"Av Lázaro Cárdenas LB, Otilio Montaño, 62577 Jiutepec, Mor., Mexico",tel:"777 271 2873",co:[18.9231,-99.1771]},
+  {n:"Fletes y Mudanzas Alvarez",m:"Jiutepec",t:"transporte",d:"Rubi 883, Vista Hermosa, 62556 Jiutepec, Mor., Mexico",tel:"777 451 5220",co:[18.8728,-99.1760]},
+  {n:"Lts Fletes y Mudanzas",m:"Jiutepec",t:"transporte",d:"5 de Febrero 21, Tejalpa, 62570 Jiutepec, Mor., Mexico",tel:"777 321 9991",co:[18.9025,-99.1693]},
+  {n:"Mudanzas Morelos. Mx",m:"Jiutepec",t:"transporte",d:"Privada 7- 3 San isidro. Jiutepec, San Isidro, 62570 Cuernavaca, Mor., Mexico",tel:"777 612 4927",co:[18.9122,-99.1651]},
+  {n:"Sitio Civac",m:"Jiutepec",t:"transporte",d:"C. Morelos 51, Tejalpa, 62570 Jiutepec, Mor., Mexico",tel:"777 309 0622",co:[18.9035,-99.1658]},
+  {n:"Fletes Y Mudanzas Omc",m:"Jiutepec",t:"transporte",d:"Av 48 Nte 13, Civac, 62578 Cuernavaca, Mor., Mexico",tel:"777 279 5833",co:[18.9186,-99.1621]},
+  {n:"Transportes Cuahutémoc Sa De Cv - Cuernavaca",m:"Jiutepec",t:"transporte",d:"A Acolapan 6099, Jose Lopez Portillo, 62573 La Joya, Mor., Mexico",tel:"",co:[18.8954,-99.1332]},
+  {n:"Transportes Cuauhtémoc",m:"Jiutepec",t:"transporte",d:"San Isidro, 62570 Jiutepec, Morelos, Mexico",tel:"777 309 3155",co:[18.9122,-99.1656]},
+  {n:"Transportistas Unidos El Zarco",m:"Jiutepec",t:"transporte",d:"Paraiso, 62733 Yautepec de Zaragoza, Morelos, Mexico",tel:"",co:[18.8793,-99.0700]},
+  {n:"OCC Terminal Yautepec",m:"Jiutepec",t:"transporte",d:"Virginia Fábregas 46D, Benito Juárez, 62730 Yautepec de Zaragoza, Mor., Mexico",tel:"",co:[18.8879,-99.0630]},
+  {n:"Autobuses Yautepec",m:"Jiutepec",t:"transporte",d:"5 de Mayo 27, Barrio de Santiago, 62730 Yautepec de Zaragoza, Mor., Mexico",tel:"",co:[18.8877,-99.0589]},
+  {n:"Tomy team fletes y mudanzas",m:"Jiutepec",t:"transporte",d:"Antiguo gobernador no. 31 ,fraccionamiento, Cruz Encantada De, San Juan, 62733 Yautepec de Zaragoza, Mor., Mexico",tel:"735 276 6216",co:[18.8786,-99.0579]},
+  {n:"Paquetería y Viajes Yessenia",m:"Jiutepec",t:"transporte",d:"Pasaje Botello, Local 110, Centro, 62730 Yautepec de Zaragoza, Mor., Mexico",tel:"735 394 1650",co:[18.8860,-99.0614]},
+  {n:"SECRETARIA DE HACIENDA",m:"Jiutepec",t:"transporte",d:"Paseo Tlahuica, Rancho Nuevo, 62733 Yautepec de Zaragoza, Mor., Mexico",tel:"735 357 2264",co:[18.8801,-99.0686]},
+  {n:"Sitio de Taxis Adolfo Ruiz Cortinez",m:"Jiutepec",t:"transporte",d:"5 de Mayo S/N, Yautepec Centro, Barrio de Santiago, 62732 Yautepec de Zaragoza, Mor., Mexico",tel:"735 394 2018",co:[18.8874,-99.0592]},
+  {n:"Omnibus Cristóbal Colón de Yautepec",m:"Jiutepec",t:"transporte",d:"Emiliano Zapata 42, Centro, 62730 Yautepec, MOR, Mexico",tel:"735 394 0041",co:[18.8878,-99.0630]},
+  {n:"Yautepec de Zaragoza Centro",m:"Jiutepec",t:"transporte",d:"Centro, 62730 Yautepec de Zaragoza, Morelos, Mexico",tel:"",co:[18.8876,-99.0629]},
+  {n:"Sitio De Taxis Ampliación Zaragoza",m:"Jiutepec",t:"transporte",d:"Calle Emiliano Zapata 8, Rancho Nuevo, 62730 Yautepec de Zaragoza, Mor., Mexico",tel:"",co:[18.8848,-99.0716]},
+  // JOJUTLA - TRANSPORTE,
+  {n:"TRANSPORTE TURISTICO UVA",m:"Jojutla",t:"transporte",d:"Av. Miguel Hidalgo 12, Benito Juárez, 62640 Amacuzac, Mor., Mexico",tel:"777 370 5158",co:[18.5993,-99.3661]},
+  {n:"Union De Taxis Independientes (sitio Sala)",m:"Jojutla",t:"transporte",d:"Amacuzac Municipality, Los Angeles, 62640 Amacuzac, Morelos, Mexico",tel:"751 344 5143",co:[18.6021,-99.3755]},
+  {n:"Sitio de Taxis Emiliano Zapata",m:"Jojutla",t:"transporte",d:"José María Morelos Sn, Centro, 62640 Amacuzac, Mor., Mexico",tel:"751 348 1277",co:[18.5992,-99.3695]},
+  {n:"Grupo Pullman",m:"Jojutla",t:"transporte",d:"Calle Cuauhtémoc 2, Centro, 62640 Amacuzac, Mor., Mexico",tel:"751 348 0045",co:[18.6001,-99.3693]},
+  {n:"Autobuses Estrella Blanca",m:"Jojutla",t:"transporte",d:"Av Hidalgo 105, Centro, 62664 Puente de Ixtla, Mor., Mexico",tel:"800 507 5500",co:[18.6176,-99.3241]},
+  {n:"Autobuses AltaMar Puente de Ixtla",m:"Jojutla",t:"transporte",d:"Av Hidalgo 105, Centro, 62664 Puente de Ixtla, Mor., Mexico",tel:"55 4440 3187",co:[18.6175,-99.3241]},
+  {n:"Paqueteria Ready Pack Puente de Ixtla",m:"Jojutla",t:"transporte",d:"Calle Zaragoza, esquina con, Gilberto Figueroa 404, San Mateo Ixtla, 62665 Puente de Ixtla, Mor., Mexico",tel:"777 367 3493",co:[18.6211,-99.3228]},
+  {n:"Radio Taxi Ejecutivo 2000",m:"Jojutla",t:"transporte",d:"Cereso 1, Buenos Aires, 62662 Puente de Ixtla, Mor., Mexico",tel:"751 344 1165",co:[18.6165,-99.3147]},
+  {n:"R.T. EJECUTIVO PTE. DE IXTLA",m:"Jojutla",t:"transporte",d:"62665, 7513444649, Argentina #18, Norte, 62665 Puente de Ixtla, Mor., Mexico",tel:"751 344 4649",co:[18.6293,-99.3207]},
+  {n:"Comite Ejecutivo PRD Puente De Ixtla",m:"Jojutla",t:"transporte",d:"Puente de Ixtla Municipality, Emiliano Zapata, 62664 Puente de Ixtla, Morelos, Mexico",tel:"751 344 1720",co:[18.6157,-99.3253]},
+  {n:"Paquetería Envíos / Puente de Ixtla",m:"Jojutla",t:"transporte",d:"Reforma 103, Centro, 62660 Puente de Ixtla, Mor., Mexico",tel:"55 2220 7770",co:[18.6167,-99.3223]},
+  {n:"Terminal Estrella Blanca Puente Acapulco",m:"Jojutla",t:"transporte",d:"Norte, 62665 Puente de Ixtla, Mor., Mexico",tel:"751 344 3992",co:[18.6313,-99.3217]},
+  {n:"Paqueteria \"Luxor Express\"",m:"Jojutla",t:"transporte",d:"Av Hidalgo 311, Centro, 62660 Puente de Ixtla, Mor., Mexico",tel:"",co:[18.6200,-99.3232]},
+  {n:"Sitio Radio Taxi Mexico Zacatepec",m:"Jojutla",t:"transporte",d:"Gilberto Figueroa S/N, San Mateo Ixtla, 62665 Puente de Ixtla, Mor., Mexico",tel:"751 344 3233",co:[18.6217,-99.3226]},
+  {n:"Servicios internacionales \"Cordova\"",m:"Jojutla",t:"transporte",d:"Quetzalcoatl 44, Cuauhtemoc, 62663 Puente de Ixtla, Mor., Mexico",tel:"",co:[18.6169,-99.3170]},
+  {n:"Alimentos y Forrajes la Central",m:"Jojutla",t:"transporte",d:"Gilberto Figueroa 509, San Mateo Ixtla, 62665 Puente de Ixtla, Mor., Mexico",tel:"751 344 0603",co:[18.6229,-99.3220]},
+  {n:"Estacionamiento el Ixtleco",m:"Jojutla",t:"transporte",d:"Vicente Guerrero 108, Centro, 62660 Puente de Ixtla, Mor., Mexico",tel:"",co:[18.6167,-99.3233]},
+  // JONACATEPEC - TRANSPORTE,
+  {n:"Secretaría de Movilidad y Transporte Delegación Jonacatepec",m:"Jonacatepec",t:"transporte",d:"Aldama 17, San Martin, 62930 Jonacatepec de Leandro Valle, Mor., Mexico",tel:"735 355 0010",co:[18.6808,-98.8041]},
+  {n:"Sitio De Taxis Los Portales",m:"Jonacatepec",t:"transporte",d:"62930 Centro, Hidalgo 8, Centro, 62930 Jonacatepec de Leandro Valle, Mor., Mexico",tel:"735 355 0917",co:[18.6803,-98.8018]},
+  {n:"Estacionamiento \"La guadalupana\"",m:"Jonacatepec",t:"transporte",d:"Centro, 62930 Jonacatepec, Morelos, Mexico",tel:"",co:[18.6802,-98.8022]},
+  {n:"Terminal Tepalcingo",m:"Jonacatepec",t:"transporte",d:"San Martin, 62920 Tepalcingo, Morelos, Mexico",tel:"",co:[18.6001,-98.8398]},
+  {n:"Terminal águilas Doradas",m:"Jonacatepec",t:"transporte",d:"Cuauhtémoc 38, San Martin, 62920 Tepalcingo, Mor., Mexico",tel:"",co:[18.6014,-98.8407]},
+  {n:"Sitio de taxis Sur-Volcanes",m:"Jonacatepec",t:"transporte",d:"62920, San Martin, 62920 Tepalcingo, Mor., Mexico",tel:"769 690 9864",co:[18.6004,-98.8401]},
+  {n:"Sitio de taxis \"Las Palmas\"",m:"Jonacatepec",t:"transporte",d:"20 de Noviembre, San Martin, 62920 Tepalcingo, Mor., Mexico",tel:"",co:[18.5973,-98.8433]},
+  {n:"Terminal de combis Tepalcingo-Ixtlilco el chico",m:"Jonacatepec",t:"transporte",d:"Guadalquivir 45, Centro, 62920 Tepalcingo, Mor., Mexico",tel:"",co:[18.5946,-98.8447]},
+  {n:"Estacionamiento El Santuario",m:"Jonacatepec",t:"transporte",d:"C. Galeana 12-18, El Santuario, 62920 Tepalcingo, Mor., Mexico",tel:"",co:[18.5958,-98.8476]},
+  {n:"CHINELOS PAQUETERIA TEPALCINGO",m:"Jonacatepec",t:"transporte",d:"Av. 16 de Septiembre 9, San Francisco, 62920 Tepalcingo, Mor., Mexico",tel:"",co:[18.5938,-98.8449]},
+  {n:"Estacionamiento Temporal Feria",m:"Jonacatepec",t:"transporte",d:"Xicoténcatl 45, San Martin, 62920 Tepalcingo, Mor., Mexico",tel:"",co:[18.6003,-98.8466]},
+  {n:"Estacionamiento",m:"Jonacatepec",t:"transporte",d:"Francisco I. Madero 10, Emiliano Zapata, 62920 Tepalcingo, Mor., Mexico",tel:"",co:[18.5955,-98.8493]},
+  // MIACATLáN - TRANSPORTE,
+  {n:"Camiones Vásquez",m:"Miacatlán",t:"transporte",d:"Plan de Ayala Manzana 018, 52433 Col. Emiliano Zapata Ejido de Tenancingo, Méx., Mexico",tel:"722 369 0937",co:[18.9534,-99.5631]},
+  // OCUITUCO - TRANSPORTE,
+  {n:"Paquetería Punto de Entrega RFL",m:"Ocuituco",t:"transporte",d:"C. San Nicolás 2B, BARRIO SAN NICOLáS, 62850 Ocuituco, Mor., Mexico",tel:"777 105 2168",co:[18.8793,-98.7766]},
+  {n:"Taxis Centro",m:"Ocuituco",t:"transporte",d:"Leandro Valle 8, BARRIO LA ASUNCIÓN, 62853 Ocuituco, Mor., Mexico",tel:"731 170 2332",co:[18.8781,-98.7749]},
+  {n:"Taxis San Nicolas",m:"Ocuituco",t:"transporte",d:"Ocuituco - Tetela 32, 62853 Ocuituco, Mor., Mexico",tel:"731 170 2636",co:[18.8804,-98.7853]},
+  {n:"Sitio de Taxis San Marcos",m:"Ocuituco",t:"transporte",d:"Morelos 4, 62856 Ocuituco, Mor., Mexico",tel:"731 170 7125",co:[18.8777,-98.7739]},
+  {n:"\"TU FERRE\" & MULTISERVICIOS OCUITUCO",m:"Ocuituco",t:"transporte",d:"Ignacio Zaragoza 164, 62854 Ocuituco, Mor., Mexico",tel:"",co:[18.8668,-98.7795]},
+  {n:"Sitio de taxis centro 2",m:"Ocuituco",t:"transporte",d:"Calle Agrarismo 2042, 62850 Ocuituco, Mor., Mexico",tel:"",co:[18.8759,-98.7759]},
+  {n:"Base Transporte Colectivo Ruta 41 Texcala—Ecatzingo—Ozumba",m:"Ocuituco",t:"transporte",d:"Emiliano Zapata, 62823 Texcala, Mor., Mexico",tel:"",co:[18.9355,-98.7956]},
+  // PUENTE DE IXTLA - TRANSPORTE,
+  {n:"Servicio de Gruas Antunez",m:"Puente de Ixtla",t:"transporte",d:"México 29, Norte, 62660 Puente de Ixtla, Mor., Mexico",tel:"751 344 0005",co:[18.6320,-99.3228]},
+  // TEMIXCO - TRANSPORTE,
+  {n:"Auto Transportes de Carga Victor Rosales S.A. de C.V.",m:"Temixco",t:"transporte",d:"5 de Mayo 605 Sur, Centro, 98500 Calera, Mor., Mexico",tel:"478 985 0040",co:[18.8417,-99.1798]},
+  {n:"Truckload",m:"Temixco",t:"transporte",d:"Car. Fed. Mex - Acá km 101+200, Miguel Hidalgo, 62585 Temixco, Mor., Mexico",tel:"",co:[18.8342,-99.2173]},
+  {n:"Fletes y Mudanzas Trujillo.",m:"Temixco",t:"transporte",d:"Av. Estado de Puebla, Amp Lazaro Cardenas, 62083 Cuernavaca, Mor., Mexico",tel:"777 255 8805",co:[18.8746,-99.2261]},
+  {n:"Fletes y mudanzas Angel",m:"Temixco",t:"transporte",d:"Av. Emiliano Zapata 165, Pro-hogar, 62765 Emiliano Zapata, Mor., Mexico",tel:"777 214 9182",co:[18.8477,-99.1918]},
+  {n:"Fletes y Mudanzas \"Emmanuel Gómez\"",m:"Temixco",t:"transporte",d:"Av. Emiliano Zapata 3, Pro-hogar, 62760 Emiliano Zapata, Mor., Mexico",tel:"",co:[18.8483,-99.1922]},
+  {n:"Transportes Turísticos Silva",m:"Temixco",t:"transporte",d:"62000 Emiliano Zapata, Morelos, Mexico",tel:"777 787 2071",co:[18.8496,-99.1956]},
+  {n:"Fletes y Mudanzas Recilla",m:"Temixco",t:"transporte",d:"Nicolás Bravo 16, San Jose de las Cumbres, 62763 Emiliano Zapata, Mor., Mexico",tel:"777 615 2370",co:[18.8581,-99.1975]},
+  {n:"Fletes y mudanzas Arellano",m:"Temixco",t:"transporte",d:"Tulipanes, Lazaro Cardenas del Rio, 62588 Temixco, Mor., Mexico",tel:"777 538 4200",co:[18.8316,-99.2443]},
+  {n:"Mudanzas Correcaminos cuernavaca",m:"Temixco",t:"transporte",d:"Palmira, 62490 Cuernavaca, Morelos, Mexico",tel:"777 565 5905",co:[18.8944,-99.2231]},
+  {n:"AR-ME Transportes",m:"Temixco",t:"transporte",d:"P.º de los Laureles 10, Las Fincas, 62565 Jiutepec, Mor., Mexico",tel:"777 514 8204",co:[18.8765,-99.1864]},
+  {n:"FLETES, MUDANZAS Y TRANSPORTES ESCOBAR",m:"Temixco",t:"transporte",d:"Av. Emiliano Zapata 165-A, Pro-hogar, 62765 Emiliano Zapata, Mor., Mexico",tel:"777 440 0554",co:[18.8477,-99.1918]},
+  {n:"Jefatura de Transportes Municipal",m:"Temixco",t:"transporte",d:"Av. Emiliano Zapata 11, Centro, 62760 Emiliano Zapata, Mor., Mexico",tel:"777 101 1160",co:[18.8407,-99.1832]},
+  {n:"Terminal de Base Ruta 20",m:"Temixco",t:"transporte",d:"Calle Emiliano Zapata km 86, El Rayo, Centro, 62590 Temixco, Mor., Mexico",tel:"",co:[18.8334,-99.2265]},
+  {n:"Municipality of Emiliano Zapata",m:"Temixco",t:"transporte",d:"10 de Abril, Centro, 62760 Emiliano Zapata, Mor., Mexico",tel:"777 802 0990",co:[18.8410,-99.1833]},
+  {n:"Unión Taxistas del Municipio de Emiliano Zapata",m:"Temixco",t:"transporte",d:"Morelos 40, 62760 Emiliano Zapata, Mor., Mexico",tel:"777 368 4017",co:[18.8571,-99.1807]},
+  {n:"Registro Civil de Emiliano Zapata",m:"Temixco",t:"transporte",d:"Constitución 99, Centro, 62760 Emiliano Zapata, Mor., Mexico",tel:"777 243 6433",co:[18.8407,-99.1834]},
+  {n:"Radio Taxi 4 Caminos",m:"Temixco",t:"transporte",d:"Calvario 2, El Calvario, 62764 Emiliano Zapata, Mor., Mexico",tel:"777 368 4808",co:[18.8445,-99.1851]},
+  {n:"Transporte Turistico Gazelle, renta de camionetas y traslados",m:"Temixco",t:"transporte",d:"condominios, San Gabriel las Palmas, Centro, 62580 Temixco, Mor., Mexico",tel:"777 182 3390",co:[18.8359,-99.2269]},
+  {n:"Autobuses GFP",m:"Temixco",t:"transporte",d:"Adolfo López Mateos, Acatlipa Centro, 62587 Temixco, Mor., Mexico",tel:"777 141 3824",co:[18.8207,-99.2324]},
+  {n:"Mudanzas mor mex",m:"Temixco",t:"transporte",d:"Cd confeccion, Av. Emiliano Zapata, 62556 Emiliano Zapata, Mor., Mexico",tel:"777 387 7189",co:[18.8442,-99.1989]},
+  {n:"Paqueteria GarMac Express Temixco",m:"Temixco",t:"transporte",d:"Calle Emiliano Zapata 163, Rio Apatlaco, 62586 Temixco, Mor., Mexico",tel:"777 387 4882",co:[18.8388,-99.2251]},
+  {n:"Transportes de Aceite Morelos",m:"Temixco",t:"transporte",d:"62585 Campo Sotelo, Mor., Mexico",tel:"",co:[18.8388,-99.2120]},
+  {n:"Radio Taxi Excelente",m:"Temixco",t:"transporte",d:"Calz de Guadalupe 86, Lomas del Carril, 62583 Temixco, Mor., Mexico",tel:"777 325 1182",co:[18.8627,-99.2326]},
+  {n:"Radio Taxis Línea Gama",m:"Temixco",t:"transporte",d:"Privada Laureles, Pueblo Viejo, 62588 Temixco, Mor., Mexico",tel:"777 325 8961",co:[18.8273,-99.2500]},
+  {n:"-kore- mudanzas",m:"Temixco",t:"transporte",d:"Priv. Escobedo sn, Campo verde, 62588 Temixco, Mor., Mexico",tel:"777 982 5121",co:[18.8721,-99.2466]},
+  {n:"Ruta 16 base Lomas del Carril",m:"Temixco",t:"transporte",d:"Calz de Guadalupe 115, Lomas del Carril, 62583 Temixco, Mor., Mexico",tel:"",co:[18.8656,-99.2349]},
+  {n:"Transito Temixco",m:"Temixco",t:"transporte",d:"Prol. Nicolás Bravo 22, Acatlipa Centro, 62586 Temixco, Mor., Mexico",tel:"",co:[18.8364,-99.2287]},
+  {n:"Estacionamiento Público Temixco",m:"Temixco",t:"transporte",d:"Calle Emiliano Zapata, Centro, 62586 Temixco, Mor., Mexico",tel:"",co:[18.8392,-99.2252]},
+  {n:"Ruta 16 base Campo Verde",m:"Temixco",t:"transporte",d:"Av. Andromeda 12, 62588 Temixco, Mor., Mexico",tel:"",co:[18.8756,-99.2528]},
+  {n:"Sitio De Taxis La Glorieta",m:"Temixco",t:"transporte",d:"Nicolás Bravo, Acatlipa Centro, 62586 Temixco, Mor., Mexico",tel:"777 385 1109",co:[18.8258,-99.2295]},
+  {n:"Radio Taxi Línea Imperial Acatlipa",m:"Temixco",t:"transporte",d:"Leona Vicario 15, de septiembre, 62586 Temixco, Mor., Mexico",tel:"777 958 1836",co:[18.8194,-99.2314]},
+  {n:"Autobuses de Primera Clase México - Zacatepec",m:"Temixco",t:"transporte",d:"José María Morelos 44, Pueblo Coatlán del Río, 62610 Temixco, Mor., Mexico",tel:"751 396 0172",co:[18.8569,-99.2238]},
+  {n:"Azteca bus",m:"Temixco",t:"transporte",d:"Calle Emiliano Zapata 64, Centro, 62580 Temixco, Mor., Mexico",tel:"",co:[18.8530,-99.2247]},
+  {n:"Autobuses Mor Mex",m:"Temixco",t:"transporte",d:"Av. Estado de Puebla 93, Lazaro Cardenas, 62080 Cuernavaca, Mor., Mexico",tel:"777 958 3582",co:[18.8794,-99.2278]},
+  {n:"Radio Taxi Jaguares",m:"Temixco",t:"transporte",d:"Aeropuerto, Nueva Morelos, 62790 Xochitepec, Mor., Mexico",tel:"777 678 3232",co:[18.8208,-99.2446]},
+  {n:"Radio taxi plus Nueva Elegancia",m:"Temixco",t:"transporte",d:"C. Girasoles 63, Nueva Morelos, 62790 Xochitepec, Mor., Mexico",tel:"777 678 3232",co:[18.8215,-99.2432]},
+  // TEMOAC - TRANSPORTE,
+  {n:"Paquetería Chinelos Temoac",m:"Temoac",t:"transporte",d:"Calle Gral. Amador Salazar 8-1, 62870 Temoac, Mor., Mexico",tel:"",co:[18.7744,-98.7779]},
+  {n:"Lemons Huexca- based Transportes SA De CV",m:"Temoac",t:"transporte",d:"62825 Yecapixtla, Morelos, Mexico",tel:"735 266 4660",co:[18.7870,-98.8412]},
+  // TEPALCINGO - TRANSPORTE,
+  // TEPOZTLáN - TRANSPORTE,
+  {n:"Servicio de transporte Santa Catarina y carga ligera",m:"Tepoztlán",t:"transporte",d:"62527 Santa Catarina, Mor., Mexico",tel:"777 572 3498",co:[18.9707,-99.1409]},
+  {n:"Terminal Pullman de Morelos",m:"Tepoztlán",t:"transporte",d:"5 de Mayo, San Miguel, 62520 Tepoztlán, Mor., Mexico",tel:"",co:[18.9820,-99.1022]},
+  {n:"Terminal Tepoztlán",m:"Tepoztlán",t:"transporte",d:"Carretera Federal Cuernavaca - Tepoztlán Km 17, Col del Tesoro, 62520 Tepoztlán, Mor., Mexico",tel:"739 395 0646",co:[18.9827,-99.1078]},
+  {n:"Termina Del Autobuses \"Ixmatlac\"",m:"Tepoztlán",t:"transporte",d:"62520, Carr Cuernavaca-Tepoztlán 55a, San Miguel, 62520 Tepoztlán, Mor., Mexico",tel:"",co:[18.9812,-99.1048]},
+  {n:"Terminal Mi Bus.",m:"Tepoztlán",t:"transporte",d:"16 de Septiembre 5, 62523 San Juan Tlacotenco, Mor., Mexico",tel:"",co:[19.0180,-99.0933]},
+  {n:"Sociedad Cooperativa de Transportes Ometochtli S.C.L.",m:"Tepoztlán",t:"transporte",d:"Av. Galeana, Santisima Trinidad, 62520 Tepoztlán, Mor., Mexico",tel:"739 395 0852",co:[18.9872,-99.1013]},
+  {n:"Terminal Tepoztlan",m:"Tepoztlán",t:"transporte",d:"Carr Cuernavaca-Tepoztlán Km 17, Col del Tesoro, 62520 Tepoztlán, Mor., Mexico",tel:"735 352 7371",co:[18.9828,-99.1078]},
+  {n:"ESTACIÓN URBVAN TEPOZTLAN",m:"Tepoztlán",t:"transporte",d:"Carr Cuernavaca-Tepoztlán 65-71, San Miguel, 62520 Tepoztlán, Mor., Mexico",tel:"",co:[18.9809,-99.1036]},
+  {n:"Radio Taxi H. Independencia A.C",m:"Tepoztlán",t:"transporte",d:"Calle Allende, Esquina, Av. Ignacio Zaragoza S/N, Santo Domingo, 62520 Tepoztlán, Mor., Mexico",tel:"777 189 8649",co:[18.9856,-99.0961]},
+  {n:"TRANSPORTE QUETZALCOATL",m:"Tepoztlán",t:"transporte",d:"Isabel La Católica 27, San Miguel, 62520 Tepoztlán, Mor., Mexico",tel:"739 395 7438",co:[18.9837,-99.1008]},
+  {n:"Taxis Tepoztlán",m:"Tepoztlán",t:"transporte",d:"Tepoztlan, San Jose, 62520 Cuernavaca, Mor., Mexico",tel:"777 877 6391",co:[18.9825,-99.0951]},
+  {n:"Servicios de trabajos",m:"Tepoztlán",t:"transporte",d:"Barrio santo domingo Privada de, Tenochtitlán S/N, Valle de Atongo, 62520 Tepoztlán, Mor., Mexico",tel:"735 297 0110",co:[18.9878,-99.0866]},
+  {n:"Speedelivery \"la bodeguita\"",m:"Tepoztlán",t:"transporte",d:"C. Aniceto Villamar 1, La Santisima, 62520 Tepoztlán, Mor., Mexico",tel:"",co:[18.9868,-99.0985]},
+  {n:"Paqueteria Point&Pack",m:"Tepoztlán",t:"transporte",d:"5 de Mayo 42, San Miguel, 62520 Tepoztlán, Mor., Mexico",tel:"961 457 7143",co:[18.9839,-99.1021]},
+  {n:"Servicio De Mensajeria",m:"Tepoztlán",t:"transporte",d:"Col del Tesoro, 62520 Tepoztlán, Mor., Mexico",tel:"777 499 8460",co:[18.9805,-99.1091]},
+  {n:"Parada MI BUS",m:"Tepoztlán",t:"transporte",d:"Av. Ignacio Zaragoza 15, Santisima Trinidad, 62520 Tepoztlán, Mor., Mexico",tel:"",co:[18.9868,-99.0995]},
+  {n:"Parada MI BUS pullman",m:"Tepoztlán",t:"transporte",d:"5 de Mayo 25, San Miguel, 62520 Tepoztlán, Mor., Mexico",tel:"",co:[18.9854,-99.1017]},
+  {n:"Sitio de taxis Revolución",m:"Tepoztlán",t:"transporte",d:"Revolución de 1910 1b, San Miguel, 62520 Tepoztlán, Mor., Mexico",tel:"",co:[18.9856,-99.1014]},
+  {n:"Tránsito Tepoztlán",m:"Tepoztlán",t:"transporte",d:"Revolución de 1910 52, San Jose, 62520 Tepoztlán, Mor., Mexico",tel:"739 395 1650",co:[18.9844,-99.0971]},
+  {n:"Tepoztlan Carr Cuernavaca",m:"Tepoztlán",t:"transporte",d:"Col del Tesoro, 62520 Tepoztlán, Morelos, Mexico",tel:"",co:[18.9826,-99.1078]},
+  {n:"Radio Taxi Línea Dorada \"Coatequitl\"",m:"Tepoztlán",t:"transporte",d:"Tejería 39B, Barrio de, San Jose, 62520 Tepoztlán, Mor., Mexico",tel:"",co:[18.9795,-99.0919]},
+  // TETECALA - TRANSPORTE,
+  // TETELA DEL VOLCáN - TRANSPORTE,
+  {n:"EXPRESSBIOTRANS CARIBE SA DE CV",m:"Tetela del Volcán",t:"transporte",d:"Carr Federal México-Cuautla km 6.5, 56983 Méx., Mexico",tel:"",co:[19.0615,-98.7861]},
+  {n:"Transportes Ruta 17",m:"Tetela del Volcán",t:"transporte",d:"Pl. Principal S/N, Centro, 62800 Tetela del Volcán, Mor., Mexico",tel:"",co:[18.8933,-98.7297]},
+  {n:"Parque Ecoturístico Hueyapan",m:"Tetela del Volcán",t:"transporte",d:"C. 5 de Mayo s/n, 74338 Barrio de San Miguel, Pue., Mexico",tel:"735 149 5546",co:[18.9142,-98.6784]},
+  {n:"Unión de Colectivos y Taxis Ruta 17",m:"Tetela del Volcán",t:"transporte",d:"López Avelar 29, San Bartolo, 62800 Tetela del Volcán, Mor., Mexico",tel:"731 357 0901",co:[18.8929,-98.7312]},
+  {n:"Radio Taxis Insurgentes",m:"Tetela del Volcán",t:"transporte",d:"Adolfo López Mateos 175, San Miguel, 62804 Tetela del Volcán, Mor., Mexico",tel:"731 357 1440",co:[18.9048,-98.7231]},
+  {n:"Sitio de Taxis \"Flecha Azul\"",m:"Tetela del Volcán",t:"transporte",d:"Miguel Hidalgo, San Miguel, 62800 Tetela del Volcán, Mor., Mexico",tel:"",co:[18.8946,-98.7291]},
+  {n:"Central Telmex Tetela del Volcán",m:"Tetela del Volcán",t:"transporte",d:"José María Morelos y Pavón 8, Santiago, 62800 Tetela del Volcán, Mor., Mexico",tel:"",co:[18.8924,-98.7316]},
+  {n:"Sitio de taxis del Centro",m:"Tetela del Volcán",t:"transporte",d:"5 de Mayo 12, San Bartolo, 62800 Tetela del Volcán, Mor., Mexico",tel:"",co:[18.8927,-98.7291]},
+  {n:"Sitio de Taxis Insurgentes 2",m:"Tetela del Volcán",t:"transporte",d:"5 de Mayo, Centro, 62800 Tetela del Volcán, Mor., Mexico",tel:"",co:[18.8933,-98.7298]},
+  // TLALNEPANTLA - TRANSPORTE,
+  // TLALTIZAPáN - TRANSPORTE,
+  {n:"Transportes FV",m:"Tlaltizapán",t:"transporte",d:"PRQQ+WJ, 62778 Temimilcingo, Mor., Mexico",tel:"",co:[18.7398,-99.1610]},
+  {n:"Taxi Tlalti Mor 🚕",m:"Tlaltizapán",t:"transporte",d:"De La Constitución 15-1, Centro, 62770 Tlaltizapán, Mor., Mexico",tel:"734 113 1487",co:[18.6830,-99.1175]},
+  {n:"Sitio De Taxis Emiliano Zapata",m:"Tlaltizapán",t:"transporte",d:"De La Constitución 1, Centro, 62770 Tlaltizapán, Mor., Mexico",tel:"751 348 1277",co:[18.6831,-99.1175]},
+  {n:"Central De Muelles De Morelos",m:"Tlaltizapán",t:"transporte",d:"Allende, Centro, 62770 Tlaltizapán, Mor., Mexico",tel:"",co:[18.6881,-99.1209]},
+  {n:"Presidencia Municipal",m:"Tlaltizapán",t:"transporte",d:"Hidalgo Sur 2, Centro, 62770 MORELOS, Mor., Mexico",tel:"734 345 0020",co:[18.6830,-99.1182]},
+  {n:"Terminal Verdes De Morelos",m:"Tlaltizapán",t:"transporte",d:"Carlos Pacheco, 62770 Tlaltizapán, Morelos, Mexico",tel:"",co:[18.6913,-99.1147]},
+  {n:"Llantas y Servicios 4 Caminos",m:"Tlaltizapán",t:"transporte",d:"5 de Febrero S/N, Cuauhtemoc, 62770 Tlaltizapán, Mor., Mexico",tel:"734 345 0497",co:[18.6954,-99.1147]},
+  // TLAQUILTENANGO - TRANSPORTE,
+  // TLAYACAPAN - TRANSPORTE,
+  {n:"Tour Operadora CHINELOBUS",m:"Tlayacapan",t:"transporte",d:"Emilio Carranza 7, Barrio de Texcalpan, 62540 Tlayacapan, Mor., Mexico",tel:"735 357 7748",co:[18.9551,-98.9824]},
+  {n:"Terminal TER",m:"Tlayacapan",t:"transporte",d:"A, Barrio de Texcalpan, 62540 Oaxtepec, Mor., Mexico",tel:"",co:[18.9569,-98.9800]},
+  {n:"Transportes Logísticos Terrestres",m:"Tlayacapan",t:"transporte",d:"W2QJ+RW, 62544 Rancho Correa, Mor., Mexico",tel:"735 212 5150",co:[18.9388,-98.9694]},
+  {n:"Tlayacapan Pueblo Mágico, Catálogo Digital Turístico.",m:"Tlayacapan",t:"transporte",d:"Corregidora s/n, Centro, 62540 Tlayacapan, Mor., Mexico",tel:"735 223 5695",co:[18.9566,-98.9838]},
+  {n:"Ramírez Garma Luis",m:"Tlayacapan",t:"transporte",d:"De La Constitución 1, Barrio de Texcalpan, 62720 Tlayacapan, Mor., Mexico",tel:"735 357 7269",co:[18.9556,-98.9811]},
+  {n:"Estacionamiento y alberca publica PEDRAZA",m:"Tlayacapan",t:"transporte",d:"C. Independencia, Exaltacion, 62540 Tlayacapan, Mor., Mexico",tel:"735 134 5876",co:[18.9540,-98.9830]},
+  {n:"DIF Municipal",m:"Tlayacapan",t:"transporte",d:"Justo Sierra 2, Centro, 62540 Tlayacapan, Mor., Mexico",tel:"",co:[18.9570,-98.9829]},
+  {n:"Parada autobuses. Caseta Oacalco",m:"Tlayacapan",t:"transporte",d:"Cerrada 18 de Marzo 8, 62737 Lázaro Cárdenas, Mor., Mexico",tel:"",co:[18.9320,-99.0264]},
+  {n:"Terminal De Autobuses TER Tlayacapan",m:"Tlayacapan",t:"transporte",d:"Carr. Xochimilco - Oaxtepec 22, Barrio de Texcalpan, 62540 Tlayacapan, Mor., Mexico",tel:"",co:[18.9547,-98.9805]},
+  // TOTOLAPAN - TRANSPORTE,
+  {n:"Servicio de Lavado y Engrasado Cortéz",m:"Totolapan",t:"transporte",d:"Km. 88 S/N, 62840 Atlatlahucan, Mor., Mexico",tel:"",co:[18.9478,-98.8992]},
+  {n:"Servicios de transporte de carga fletes y pequeñas mudanzas \"SR2\"",m:"Totolapan",t:"transporte",d:"Av. Hidalgo 65, De La Soledad 3, Amecameca, 56900 Amecameca de Juárez, Méx., Mexico",tel:"",co:[19.1240,-98.7707]},
+  {n:"TFC Transportes",m:"Totolapan",t:"transporte",d:"Carretera Chalco Cuatzingo MK 1.3, P100, Esquina Carretera México, La Granja, 56640 Cuautla, Mor., Mexico",tel:"55 4131 5506",co:[19.0356,-98.8093]},
+  {n:"P.V.I. Atlatlahucan",m:"Totolapan",t:"transporte",d:"62845 Col. Pozo Mancera, Morelos, Mexico",tel:"",co:[18.9572,-98.8722]},
+  {n:"Terminal estrella roja",m:"Totolapan",t:"transporte",d:"De La Conquista, San Sebastian, 62830 Totolapan, Mor., Mexico",tel:"",co:[18.9869,-98.9215]},
+  {n:"Terminal Sur-Volcanoes Buses",m:"Totolapan",t:"transporte",d:"Av. José Antonio Alzate Manzana 030, Ozumba, 56800 Ozumba de Alzate, Méx., Mexico",tel:"",co:[19.0338,-98.7991]},
+  {n:"Terminal de Autobuses Amecameca",m:"Totolapan",t:"transporte",d:"C. 20 de Noviembre N° 8, Col. Centro, 56900 Amecameca de Juárez, Méx., Mexico",tel:"",co:[19.1305,-98.7696]},
+  {n:"Terminal Amecameca Volcanes",m:"Totolapan",t:"transporte",d:"C. 20 de Noviembre 8, centro, 56903 Amecameca de Juárez, Méx., Mexico",tel:"597 978 0666",co:[19.1305,-98.7696]},
+  {n:"Sitio de Taxis Emiliano Zapata",m:"Totolapan",t:"transporte",d:"De la Constitución SN, Purisima Concepción, 62830 Totolapan, Mor., Mexico",tel:"751 348 1277",co:[18.9874,-98.9205]},
+  {n:"Estacionamiento Marentes",m:"Totolapan",t:"transporte",d:"San Sebastian, 62830 Totolapan, Mor., Mexico",tel:"",co:[18.9895,-98.9249]},
+  {n:"Estacionamiento Monte Alegre",m:"Totolapan",t:"transporte",d:"Alarcón Nte. 33, Purisima Concepción, 62830 Totolapan, Mor., Mexico",tel:"",co:[18.9899,-98.9213]},
+  // XOCHITEPEC - TRANSPORTE,
+  {n:"Pullman de Morelos Terminal Xochitepec",m:"Xochitepec",t:"transporte",d:"Cam. de Acceso a Xochitepec, Centro, 62790 Xochitepec, Mor., Mexico",tel:"800 624 0360",co:[18.7756,-99.2250]},
+  {n:"Pullman de Morelos bus stop Chinconcuac",m:"Xochitepec",t:"transporte",d:"Calz. De Los Pinos 52, Lazaro Cardenas, 62795 Chiconcuac, Mor., Mexico",tel:"2450997",co:[18.7809,-99.2088]},
+  {n:"Terminal Pullman Morelos Chiconcuac",m:"Xochitepec",t:"transporte",d:"Calz. De Los Pinos, Lazaro Cardenas, 62790 Chiconcuac, Mor., Mexico",tel:"777 365 1397",co:[18.7810,-99.2087]},
+  {n:"Secretaria de Movilidad y Transporte de Morelos Delegación Xochitepec",m:"Xochitepec",t:"transporte",d:"C. Segunda República de Haiti 17, 31, Centro, 62790 Xochitepec, Mor., Mexico",tel:"777 365 7193",co:[18.7811,-99.2304]},
+  {n:"TRANSPORTES LAVALLE",m:"Xochitepec",t:"transporte",d:"PASEO TECNOLOGICO, 62790 Xochitepec, Mor., Mexico",tel:"777 137 0730",co:[18.7454,-99.2399]},
+  {n:"Radio Taxis Union Autentica de Taxistas",m:"Xochitepec",t:"transporte",d:"Venezuela 10, Centro, 62790 Xochitepec, Mor., Mexico",tel:"777 361 0008",co:[18.7817,-99.2280]},
+  {n:"Unión de Taxistas Organizados de Xochitepec",m:"Xochitepec",t:"transporte",d:"Zapata - Zacatepec, Lazaro Cardenas, 62790 Chiconcuac, Mor., Mexico",tel:"777 361 3423",co:[18.7815,-99.2074]},
+  {n:"MENSAJERIA Y DELIVERY TIC-TOC",m:"Xochitepec",t:"transporte",d:"MENSAJERIA Y DELIVERY TIC-TOC Xochitepec, Real del Puente, 62790 Cuernavaca, Mor., Mexico",tel:"",co:[18.7983,-99.2317]},
+  {n:"Departamento de Transito Xochitepec",m:"Xochitepec",t:"transporte",d:"Centro, 62790 Xochitepec, Mor., Mexico",tel:"777 329 6500",co:[18.7813,-99.2304]},
+  {n:"Sitio Unión Xochitepec",m:"Xochitepec",t:"transporte",d:"República de Nicaragua 1, Centro, 62790 Xochitepec, Mor., Mexico",tel:"777 361 3423",co:[18.7816,-99.2283]},
+  {n:"Sitio Xochitepec A, C",m:"Xochitepec",t:"transporte",d:"Cam. de Acceso a Xochitepec, Centro, 62790 Xochitepec, Mor., Mexico",tel:"777 361 3423",co:[18.7759,-99.2249]},
+  {n:"Sitio de Taxis Crucero de la Luz",m:"Xochitepec",t:"transporte",d:"Carretera Federal México Acapulco Sn, La Cruz, 62790 Xochitepec, Mor., Mexico",tel:"777 390 7051",co:[18.8038,-99.2340]},
+  {n:"Agencia de viajes lunatransporturismo",m:"Xochitepec",t:"transporte",d:"C. Rep. de Paraguay 50, Centro, 62790 Xochitepec, Mor., Mexico",tel:"777 105 6124",co:[18.7796,-99.2315]},
+  {n:"Luna Transporturismo",m:"Xochitepec",t:"transporte",d:"62790, Av. Morelos, Centro, 62790 Xochitepec, Mor., Mexico",tel:"777 260 9675",co:[18.7864,-99.2314]},
+  // XOXOCOTLA - TRANSPORTE,
+  {n:"Venta de Carros y Camiones usados EL BOOM",m:"Xoxocotla",t:"transporte",d:"Carretera Cuernavaca-Puente de Ixtla, 62660 Alpuyeca, Mor., Mexico",tel:"777 181 0370",co:[18.7039,-99.2762]},
+  {n:"Terminal Pullman de Morelos Xoxocotla",m:"Xoxocotla",t:"transporte",d:"Alpuyeca-jojutla, Centro, 62680 Xoxocotla Centro, Mor., Mexico",tel:"",co:[18.6822,-99.2452]},
+  {n:"TIX • Transporte Indígena de Xoxocotla",m:"Xoxocotla",t:"transporte",d:"C. Constituyentes 1, Centro, 62680 Xoxocotla Centro, Mor., Mexico",tel:"",co:[18.6874,-99.2471]},
+  // YAUTEPEC - TRANSPORTE,
+  {n:"Central de autobuses Oaxtepec",m:"Yautepec",t:"transporte",d:"Cocoyito, Francisco Villa, 62736 Cocoyoc, Mor., Mexico",tel:"",co:[18.8892,-98.9739]},
+  {n:"Mudanzas y fletes Cruz Mondragon",m:"Yautepec",t:"transporte",d:"62732 Yautepec de Zaragoza, Morelos, Mexico",tel:"55 7433 9734",co:[18.9031,-99.0524]},
+  {n:"Autobuses OCC (MobilityADO)",m:"Yautepec",t:"transporte",d:"Oaxtepec bus station, Centro, 62738 Oaxtepec, Mor., Mexico",tel:"",co:[18.9013,-98.9805]},
+  {n:"TER Estrella Roja De Cuautla Terminal San Carlos",m:"Yautepec",t:"transporte",d:"62737, Construcción 737, San Carlos, 62737 Los Arcos, Mor., Mexico",tel:"",co:[18.8916,-99.0253]},
+  {n:"Autobuses Estrella Roja - Estación Terminal Oaxtepec",m:"Yautepec",t:"transporte",d:"Centro, 62738 Oaxtepec, Mor., Mexico",tel:"55 3954 5841",co:[18.9014,-98.9804]},
+  {n:"Terminal Oaxtepec",m:"Yautepec",t:"transporte",d:"Carretera Oaxtepec - Xochimilco SN, Oaxtepec Centro, Centro, 62738 Yautepec, Mor., Mexico",tel:"735 356 4483",co:[18.9015,-98.9805]},
+  {n:"Estación de Autobuses de Oaxtepec",m:"Yautepec",t:"transporte",d:"México 113, Centro, 62738 Oaxtepec, Mor., Mexico",tel:"",co:[18.9015,-98.9805]},
+  {n:"Oaxtepec bus station",m:"Yautepec",t:"transporte",d:"Centro, 62738 Oaxtepec, Morelos, Mexico",tel:"",co:[18.9014,-98.9805]},
+  {n:"Yautepec de Zaragoza Morelos",m:"Yautepec",t:"transporte",d:"Mudanzas y fletes Cruz Mondragon - Yautepec de Zaragoza 29, Ixtlahuacan, 62730 Yautepec de Zaragoza, Mor., Mexico",tel:"55 7433 9734",co:[18.8914,-99.0545]},
+  // YECAPIXTLA - TRANSPORTE,
+  {n:"Accesorios Para Autos Y Camiones Las Americas",m:"Yecapixtla",t:"transporte",d:"Defensa 50, San Marcos, 62820 Yecapixtla, Mor., Mexico",tel:"",co:[18.8758,-98.8605]},
+  {n:"kk recorridos turisticos",m:"Yecapixtla",t:"transporte",d:"Sufragio Efectivo 10, Centro, 62820 Yecapixtla, Mor., Mexico",tel:"735 177 9786",co:[18.8834,-98.8653]},
+  {n:"Sitio de Taxis",m:"Yecapixtla",t:"transporte",d:"Av Emilio Carranza 102, Centro, 62820 Yecapixtla, Mor., Mexico",tel:"731 357 2579",co:[18.8804,-98.8634]},
+  {n:"Estacionamiento Publico",m:"Yecapixtla",t:"transporte",d:"62820, No Reelección 17, Centro, 62820 Yecapixtla, Mor., Mexico",tel:"",co:[18.8825,-98.8668]},
+  {n:"Estacionamiento Yecapixtla",m:"Yecapixtla",t:"transporte",d:"Centro, 62820 Yecapixtla, Mor., Mexico",tel:"",co:[18.8827,-98.8666]},
+  {n:"Estacionamiento Público",m:"Yecapixtla",t:"transporte",d:"Centro, 62820 Yecapixtla, Mor., Mexico",tel:"",co:[18.8845,-98.8644]},
+  {n:"Estacionamiento “El Profe”",m:"Yecapixtla",t:"transporte",d:"Centro, 62820 Yecapixtla, Mor., Mexico",tel:"",co:[18.8846,-98.8653]},
+  {n:"Estacionamiento Los toritos",m:"Yecapixtla",t:"transporte",d:"Av Emilio Carranza 31, Centro, 62820 Yecapixtla, Mor., Mexico",tel:"",co:[18.8807,-98.8643]},
+  {n:"Estacionamiento la casa de la tie Meme",m:"Yecapixtla",t:"transporte",d:"Adolfo López Mateos 1, Centro, 62820 Yecapixtla, Mor., Mexico",tel:"",co:[18.8854,-98.8655]},
+  // ZACATEPEC - TRANSPORTE,
+  {n:"Coordinación General de Movilidad y Transporte Jojutla",m:"Zacatepec",t:"transporte",d:"Lázaro Cárdenas 307, Cuauhtemoc, 62900 Jojutla, Mor., Mexico",tel:"777 142 1090",co:[18.6201,-99.1790]},
+  {n:"Terminal Pullman De Morelos Galeana",m:"Zacatepec",t:"transporte",d:"Blvrd 17 Abril 15 Centro Galeana, Centro, 62785 Zacatepec de Hidalgo, Mor., Mexico",tel:"734 343 7285",co:[18.6403,-99.2127]},
+  {n:"Paquetería GarMac Express Jojutla",m:"Zacatepec",t:"transporte",d:"C. Aquiles Serdán 206-D, Centro, 62900 Jojutla, Mor., Mexico",tel:"734 340 8607",co:[18.6144,-99.1767]},
+  {n:"Autobuses Dorados del Sur",m:"Zacatepec",t:"transporte",d:"C. Josefa Ortiz de Domínguez 116, Centro, 62900 Centro, Mor., Mexico",tel:"734 342 2690",co:[18.6150,-99.1784]},
+  {n:"Excursiones AlimarTrip y Autobuses Alimar",m:"Zacatepec",t:"transporte",d:"Calle Miguel Hidalgo 104, Centro, 62900 Jojutla, Mor., Mexico",tel:"777 441 5482",co:[18.6159,-99.1807]},
+  {n:"Sitio de Taxis Central del Sur",m:"Zacatepec",t:"transporte",d:"Tierra SN, Benito Juárez, Centro, 62900 Benito Juárez, Mor., Mexico",tel:"734 342 6280",co:[18.6152,-99.1780]},
+  {n:"ESTACION DE SERVICIO \"EL HIGUERON\"",m:"Zacatepec",t:"transporte",d:"Carretera, Jojutla - El Higuerón, Centro, 62900 Jojutla, Mor., Mexico",tel:"",co:[18.6099,-99.1740]},
+  {n:"Verdes de Morelos",m:"Zacatepec",t:"transporte",d:"C. Josefa Ortiz de Domínguez, Centro, 62900 Jojutla, Mor., Mexico",tel:"",co:[18.6154,-99.1782]},
+  {n:"Parada de Autobuses",m:"Zacatepec",t:"transporte",d:"Lázaro Cárdenas 102, Cuauhtemoc, 62900 Jojutla, Mor., Mexico",tel:"",co:[18.6195,-99.1783]},
+  {n:"Inmuebles y Terminales Grupo Pullman",m:"Zacatepec",t:"transporte",d:"Francisco Leyva 101, Centro, 62900 Jojutla, Mor., Mexico",tel:"734 342 4328",co:[18.6130,-99.1785]},
+  {n:"Sitio Juárez",m:"Zacatepec",t:"transporte",d:"Ricardo Sánchez 305, Centro, 62900 Jojutla, Mor., Mexico",tel:"734 342 0305",co:[18.6138,-99.1813]},
+  {n:"Sitio Juárez",m:"Zacatepec",t:"transporte",d:"C. Josefa Ortiz de Domínguez 422, Centro, 62900 Jojutla, Mor., Mexico",tel:"734 342 0305",co:[18.6169,-99.1764]},
+  {n:"Estacionamiento Público",m:"Zacatepec",t:"transporte",d:"C. Leona Vicario 102, Emiliano Zapata, 62900 Jojutla, Mor., Mexico",tel:"",co:[18.6135,-99.1775]},
+  {n:"Sitio de Taxis Juárez",m:"Zacatepec",t:"transporte",d:"Calle Universidad 10, Col del Bosque, 62900 Jojutla, Mor., Mexico",tel:"734 342 5262",co:[18.6172,-99.1873]},
+  {n:"Estacionamiento Público",m:"Zacatepec",t:"transporte",d:"C. Aquiles Serdán 127, Centro, 62900 Jojutla, Mor., Mexico",tel:"",co:[18.6147,-99.1768]},
+  {n:"Unión Juárez",m:"Zacatepec",t:"transporte",d:"Francisco Leyva 68, Centro, 62900 Jojutla, Mor., Mexico",tel:"734 342 0305",co:[18.6126,-99.1788]},
+  {n:"Estrella Roja (TER) Terminal Jojutla",m:"Zacatepec",t:"transporte",d:"Morelos Alpuyeca - Tepalcingo, Los Pilares, 62909 Los Pilares, Frente al salon de eventos el Zafiro, 62900 Jojutla, Mor., Mexico",tel:"734 128 7540",co:[18.6232,-99.2004]},
+  {n:"Autobuses Mex-Zacatepec",m:"Zacatepec",t:"transporte",d:"Mante 3, Lazaro Cardenas, 62780 Zacatepec, Mor., Mexico",tel:"734 343 1234",co:[18.6521,-99.1946]},
+  {n:"Estacionamiento y Pensión San Sebastian",m:"Zacatepec",t:"transporte",d:"Francisco Leyva 235, Centro, 62900 Jojutla, Mor., Mexico",tel:"",co:[18.6103,-99.1794]},
+  {n:"TRANSPORTES TAPIA TAFOLLA S.A. DE C.V.",m:"Zacatepec",t:"transporte",d:"62772 Tlaltizapán, Morelos, Mexico",tel:"",co:[18.6747,-99.1688]},
+  {n:"Terminal Crucero Corona, Pullman de Morelos",m:"Zacatepec",t:"transporte",d:"Galeana - Cuautla 27, Guadalupe Victoria, 62785 San Nicolás Galeana, Mor., Mexico",tel:"",co:[18.6441,-99.2139]},
+  {n:"Sitio Tlaquitenango",m:"Zacatepec",t:"transporte",d:"Pl. Revolución Sn, Centro, 62980 Tlaquiltenango, Mor., Mexico",tel:"734 342 3222",co:[18.6304,-99.1613]},
+  {n:"Paqueteria y mensajeria expres",m:"Zacatepec",t:"transporte",d:"Nicolás Bravo, Gabriel Tepepa, 62980 Tlaquiltenango, Mor., Mexico",tel:"734 110 9763",co:[18.6373,-99.1636]},
+  {n:"Sitio Morelos",m:"Zacatepec",t:"transporte",d:"Pl. Revolución Sn, Centro, 62980 Tlaquiltenango, Mor., Mexico",tel:"734 342 2001",co:[18.6303,-99.1613]},
+  {n:"Alquiladora De Servicios",m:"Zacatepec",t:"transporte",d:"Santos Degollado 04, Gabriel Tepepa, 62980 Tlaquiltenango, Mor., Mexico",tel:"734 343 9634",co:[18.6415,-99.1603]},
+  {n:"Sitio de Taxis Zona Oriente",m:"Zacatepec",t:"transporte",d:"Francisco Mendoza 3, Centro, 62985 Tlaquiltenango, Mor., Mexico",tel:"731 170 4487",co:[18.6326,-99.1630]},
+  {n:"Subestación Jojutla (JJT) CFE",m:"Zacatepec",t:"transporte",d:"62982 Tlaquiltenango, Morelos, Mexico",tel:"",co:[18.6303,-99.1850]},
+  {n:"Seguridad Pública de Tlaquiltenango",m:"Zacatepec",t:"transporte",d:"Lorenzo Vázquez Sn, 3 de Mayo, 62970 Tlaquiltenango, Mor., Mexico",tel:"734 342 7774",co:[18.6291,-99.1554]},
+  {n:"Dirección General de Seguridad Publica, Transito y Protección Civil",m:"Zacatepec",t:"transporte",d:"Lorenzo Vázquez 3, La Cantora, 62980 Tlaquiltenango, Mor., Mexico",tel:"",co:[18.6292,-99.1553]},
+  {n:"Municipal Presidency Tlaquiltenango",m:"Zacatepec",t:"transporte",d:"Calle Emiliano Zapata s/n, Centro, 62980 Tlaquiltenango, Mor., Mexico",tel:"734 342 1477",co:[18.6295,-99.1628]},
+  {n:"central Zacatepec",m:"Zacatepec",t:"transporte",d:"C. Mochis 45, Lazaro Cardenas, 62780 Zacatepec de Hidalgo, Mor., Mexico",tel:"",co:[18.6516,-99.1903]},
+  {n:"Taxis Galeana",m:"Zacatepec",t:"transporte",d:"Cuauhtémoc 50, 20 de Noviembre, 62780 Zacatepec, Mor., Mexico",tel:"734 343 2480",co:[18.6646,-99.2026]},
+  {n:"Sitio de Taxis Morelos",m:"Zacatepec",t:"transporte",d:"Josefa Ortíz de Domínguez 55, Centro, 62780 Zacatepec, Mor., Mexico",tel:"734 343 6962",co:[18.6556,-99.1905]},
+  {n:"Fumisepar S.A de C.V Seguridad Privada",m:"Zacatepec",t:"transporte",d:"BLVD, Lázaro Cárdenas, 62785 Zacatepec de Hidalgo, Mor., Mexico",tel:"734 120 4074",co:[18.6496,-99.2006]},
+  {n:"Sitio Mercado A.C.",m:"Zacatepec",t:"transporte",d:"Hacienda Vieja Sn, 20 de Noviembre, 62780 Zacatepec de Hidalgo, Mor., Mexico",tel:"734 343 2494",co:[18.6570,-99.1930]},
+  // ZACUALPAN - TRANSPORTE,
+  // AMACUZAC - GASOLINERAS,
+  {n:"Gasogrupo Excam S.A. de C.V.",m:"Amacuzac",t:"gasolinera",d:"Km. 44+400 Tramo Puente Ixtla-Iguala Auto. Mex-Aca, La Glorieta, 62540 Amacuzac, Mor., Mexico",tel:"800 736 3900",co:[18.6034,-99.3738]},
+  // ATLATLAHUCAN - GASOLINERAS,
+  {n:"Estación de Servicio El Salto",m:"Atlatlahucan",t:"gasolinera",d:"Carr Federal México-Cuautla KM 68, 62840 Atlatlahucan, Mor., Mexico",tel:"735 351 5915",co:[18.9164,-98.8956]},
+  {n:"Pemex Atlatlahucan",m:"Atlatlahucan",t:"gasolinera",d:"Km. 88 29, El Mirador, 62840 Atlatlahucan, Mor., Mexico",tel:"",co:[18.9333,-98.8906]},
+  {n:"Gas Andre",m:"Atlatlahucan",t:"gasolinera",d:"Carret. Mexico-Cuautla Km. 63.5, Pueblo Atlatlahucan, 74548 Atlatlahucan, Mor., Mexico",tel:"735 353 7600",co:[18.8915,-98.9132]},
+  {n:"Estación de gas LP \"Atlatlahucan\"",m:"Atlatlahucan",t:"gasolinera",d:"Guerrero 23, De Santa Ana, 62844 Atlatlahucan, Mor., Mexico",tel:"",co:[18.9254,-98.9003]},
+  {n:"Pemex",m:"Atlatlahucan",t:"gasolinera",d:"Carr Federal México-Cuautla Km. 68, 62840 Atlatlahucan, Mor., Mexico",tel:"800 736 3900",co:[18.9164,-98.8956]},
+  {n:"bp",m:"Atlatlahucan",t:"gasolinera",d:"Carretera Federal Cuautla-México Km 62.5 Calle, Emiliano Zapata, 62757 Atlatlahucan, Mor., Mexico",tel:"800 670 2123",co:[18.8898,-98.9134]},
+  // AXOCHIAPAN - GASOLINERAS,
+  {n:"Gasolinera Axochiapan 449",m:"Axochiapan",t:"gasolinera",d:"Independencia 55, Progreso, 62953 Axochiapan, Mor., Mexico",tel:"769 392 8975",co:[18.4991,-98.7511]},
+  {n:"Autoservicio Axochiapan",m:"Axochiapan",t:"gasolinera",d:"62956 Axochiapan, Morelos, Mexico",tel:"735 298 7051",co:[18.4764,-98.7340]},
+  {n:"San Pablo gas station",m:"Axochiapan",t:"gasolinera",d:"Carr. a Atlacahualoya, Ruben Carrillo, 62950 Axochiapan, Mor., Mexico",tel:"",co:[18.5135,-98.7469]},
+  {n:"Pemex",m:"Axochiapan",t:"gasolinera",d:"Independencia # 55, Progreso, 62953 Axochiapan, Mor., Mexico",tel:"800 736 3900",co:[18.4991,-98.7511]},
+  {n:"Gasolinera Pemex",m:"Axochiapan",t:"gasolinera",d:"Avenida Colon # 195, Esq. Libramiento San Pablo, La Laguna, 62950 Axochiapan, Mor., Mexico",tel:"800 736 3900",co:[18.5103,-98.7742]},
+  {n:"Pemex",m:"Axochiapan",t:"gasolinera",d:"Camino, Axochiapan - Atlacahualoya #148, La Guadalupana, 62955 Axochiapan, Mor., Mexico",tel:"800 736 3900",co:[18.5137,-98.7468]},
+  {n:"Global Gas Axochiapan",m:"Axochiapan",t:"gasolinera",d:"62956 Axochiapan, Morelos, Mexico",tel:"",co:[18.4809,-98.7480]},
+  {n:"Gasolinera Pemex",m:"Axochiapan",t:"gasolinera",d:"Temilpa - Tepalcingo 000-Km. 4, Ol, 62920 Axochiapan, Mor., Mexico",tel:"800 736 3900",co:[18.5724,-98.8216]},
+  // AYALA - GASOLINERAS,
+  {n:"Gasolinera Ayala",m:"Ayala",t:"gasolinera",d:"Pablo Torres Burgos 48, Centro, 62700 Cdad. Ayala, Mor., Mexico",tel:"",co:[18.7621,-98.9839]},
+  {n:"Gasolinera Pemex",m:"Ayala",t:"gasolinera",d:"Avenida, Pablo Torres Burgos Num.75, Centro, 62700 Cdad. Ayala, Mor., Mexico",tel:"800 736 3900",co:[18.7621,-98.9840]},
+  {n:"Más gas Axocoche",m:"Ayala",t:"gasolinera",d:"62700, San Antonio, 62700 Cdad. Ayala, Mor., Mexico",tel:"735 494 4566",co:[18.7574,-98.9849]},
+  {n:"Corporativo de Estaciones GAL",m:"Ayala",t:"gasolinera",d:"Avenida, Pablo Torres Burgos Num.75, Centro, 62700 Cdad. Ayala, Mor., Mexico",tel:"",co:[18.7620,-98.9842]},
+  {n:"Pemex",m:"Ayala",t:"gasolinera",d:"Boulevard Cuautla V. De Ayala S/N Poblado De, Anenecuilco, 62709 El Almacén, Mor., Mexico",tel:"800 736 3900",co:[18.7951,-98.9722]},
+  {n:"Pemex",m:"Ayala",t:"gasolinera",d:"Av. Progreso, Plan de Ayala, 62743 Cuautla, Mor., Mexico",tel:"800 736 3900",co:[18.8054,-98.9361]},
+  {n:"Superservicio Morelos de Cuautla",m:"Ayala",t:"gasolinera",d:"Carr México Oaxaca 2, Plan de Ayala, 62743 Cuautla, Mor., Mexico",tel:"735 352 1787",co:[18.8054,-98.9360]},
+  {n:"SERVICIO PLAN DE AYALA",m:"Ayala",t:"gasolinera",d:"La Palma, 62553 Jiutepec, Mor., Mexico",tel:"",co:[18.9001,-99.1722]},
+  {n:"SERVICIO TLAYECAC SA",m:"Ayala",t:"gasolinera",d:"Carretera Mexico Oaxaca Km 82 + 700, 62721 Tlayecac, Mor., Mexico",tel:"",co:[18.7628,-98.8860]},
+  {n:"PEMEX",m:"Ayala",t:"gasolinera",d:"Boulevard Emiliano Zapata S/N Km 1.2, Col.nuevo México, Anenecuilco, 62709 Mor., Mexico",tel:"800 736 3900",co:[18.7985,-98.9692]},
+  {n:"PEMEX",m:"Ayala",t:"gasolinera",d:"Carretera Sta.Barbara A, Pue., Km.81, 62721 Izúcar de Matamoros, Mor., Mexico",tel:"800 736 3900",co:[18.7713,-98.8949]},
+  {n:"Pemex",m:"Ayala",t:"gasolinera",d:"Carr México Oaxaca Km. 82.7, 62717 Cd Ayala, Mor., Mexico",tel:"800 736 3900",co:[18.7628,-98.8851]},
+  // COATETELCO - GASOLINERAS,
+  {n:"XOCHIGAS SA DE CV",m:"Coatetelco",t:"gasolinera",d:"Cam. de Acceso a Xochitepec 7, Centro, 62790 Xochitepec, Mor., Mexico",tel:"777 365 6081",co:[18.7753,-99.2250]},
+  {n:"GASOLINERA 4MILPAS",m:"Coatetelco",t:"gasolinera",d:"México 95 KM 121+100, 62666 Ahuehuetzingo, Mor., Mexico",tel:"734 340 0277",co:[18.6787,-99.2924]},
+  {n:"Gasolinera Pemex",m:"Coatetelco",t:"gasolinera",d:"MPG5+H6, 62673 Ahuehuetzingo, Morelos, Mexico",tel:"800 736 3900",co:[18.6765,-99.2919]},
+  {n:"Gasolinera",m:"Coatetelco",t:"gasolinera",d:"Carr. Xochimilco - Oaxtepec, Altica, 62547 Tlayacapan, Mor., Mexico",tel:"275 441 2343",co:[18.9678,-98.9887]},
+  {n:"ENERGIA Y GAS DE CUAUTLA SA DE CV E7880",m:"Coatetelco",t:"gasolinera",d:"CARRETERA CUERNAVACA JOJUTLA S/N, Josefa Ortiz de Dominguez, 62785 Zacatepec de Hidalgo, Mor., Mexico",tel:"",co:[18.6303,-99.2079]},
+  {n:"GOGAS 9767 Cantabria",m:"Coatetelco",t:"gasolinera",d:"Av. Par Vial 44, Atlacomulco, 62560 Jiutepec, Mor., Mexico",tel:"777 512 0967",co:[18.8895,-99.1997]},
+  {n:"Mobil Autopista Cuernavaca",m:"Coatetelco",t:"gasolinera",d:"Autopista Del Sol, Mexico-Acapulco Km. 38.730, Las Animas, 62583 Temixco, Mor., Mexico",tel:"",co:[18.8560,-99.2205]},
+  {n:"Gasolineria El Faro",m:"Coatetelco",t:"gasolinera",d:"Carretera federal, Cuautla - Izucar de Matamoros, Santa Barbara, 62972 Amayuca, Mor., Mexico",tel:"731 351 2003",co:[18.7340,-98.8184]},
+  {n:"Hidrosina",m:"Coatetelco",t:"gasolinera",d:"Crucero de Tezoyuca Tepetzingo S/N, Lazaro Cardenas, 62720 Emiliano Zapata, Mor., Mexico",tel:"55 5262 3858",co:[18.7784,-99.2090]},
+  {n:"Estación de Servicio Zacatepec",m:"Coatetelco",t:"gasolinera",d:"Av. Cuauhtemoc No. 2, Galeana Centro, 62780 Zacatepec de Hidalgo, Mor., Mexico",tel:"734 347 9826",co:[18.6456,-99.2060]},
+  {n:"Gasolinera Pemex",m:"Coatetelco",t:"gasolinera",d:"Cam. de Acceso a Xochitepec 7, Centro, 62790 Xochitepec, Mor., Mexico",tel:"800 736 3900",co:[18.7753,-99.2250]},
+  {n:"Gasolinera gas LP",m:"Coatetelco",t:"gasolinera",d:"Puente de Ixtla Municipality, 62666 Morelos, Mexico",tel:"",co:[18.6909,-99.2840]},
+  {n:"GasolineraBenitoJuarez",m:"Coatetelco",t:"gasolinera",d:"Dr. José Ma. Luis Mora, Benito Juárez, 62780 Zacatepec de Hidalgo, Mor., Mexico",tel:"",co:[18.6673,-99.1862]},
+  {n:"GASOLINERIA SAN MATEO",m:"Coatetelco",t:"gasolinera",d:"Reforma 715, SAN MATEO, 62665 Puente de Ixtla, Mor., Mexico",tel:"751 347 6873",co:[18.6225,-99.3208]},
+  {n:"Gas Modelo",m:"Coatetelco",t:"gasolinera",d:"62636 Morelos, Mexico",tel:"777 101 0130",co:[18.7281,-99.3774]},
+  {n:"PEMEX",m:"Coatetelco",t:"gasolinera",d:"Campo Pintora, 62680 Xoxocotla, Morelos, Mexico",tel:"800 736 3900",co:[18.7026,-99.2504]},
+  {n:"Estaciones de Servicio Nexum",m:"Coatetelco",t:"gasolinera",d:"Carr Jojutla-Tequesquitengo S/N, 62900 Jojutla, Mor., Mexico",tel:"800 963 9861",co:[18.6010,-99.2036]},
+  // COATLáN DEL RÍO - GASOLINERAS,
+  {n:"Gasolinera del Lago (09894)",m:"Coatlán del Río",t:"gasolinera",d:"62915 Tehuixtla, Mor., Mexico",tel:"734 347 0340",co:[18.5945,-99.2585]},
+  {n:"Pemex E04185",m:"Coatlán del Río",t:"gasolinera",d:"Carretera, Alpuyeca-jojutla km. 4, 5 Loc, 62680 Xoxocotla Centro, Mor., Mexico",tel:"734 345 5463",co:[18.6903,-99.2503]},
+  {n:"Gasolinera Pemex",m:"Coatlán del Río",t:"gasolinera",d:"México 95 Km 119.08, Xoxocotla, 62670 Mor., Mexico",tel:"800 736 3900",co:[18.6918,-99.2818]},
+  {n:"Pemex",m:"Coatlán del Río",t:"gasolinera",d:"Km 100, México 95, Centro, 62797 Alpuyeca, Mor., Mexico",tel:"800 736 3900",co:[18.7355,-99.2607]},
+  {n:"Pemex",m:"Coatlán del Río",t:"gasolinera",d:"Autopista Mexico CuernavaCarretera Km. 117+70, Puente de Ixtla, 62388 Mor., Mexico",tel:"800 736 3900",co:[18.7023,-99.2762]},
+  {n:"Gas Lp",m:"Coatlán del Río",t:"gasolinera",d:"México 166, Col Morelos, 62616 Chavarría, Mor., Mexico",tel:"777 504 0579",co:[18.7463,-99.4640]},
+  {n:"Pemex",m:"Coatlán del Río",t:"gasolinera",d:"Autopista Mexico-Iguala Km 97.7, 62797 Amp. la Pintora, Mor., Mexico",tel:"800 736 3900",co:[18.7254,-99.2574]},
+  {n:"Pemex",m:"Coatlán del Río",t:"gasolinera",d:"62790 Morelos, Mexico",tel:"800 736 3900",co:[18.7983,-99.2206]},
+  {n:"Pemex",m:"Coatlán del Río",t:"gasolinera",d:"Brisas, 62584 Temixco, Morelos, Mexico",tel:"800 736 3900",co:[18.8451,-99.2188]},
+  {n:"COMBUSTIBLES CHIPITLAN SA DE CV",m:"Coatlán del Río",t:"gasolinera",d:"José María Morelos 91, Chipitlan, 62070 Cuernavaca, Mor., Mexico",tel:"777 361 7789",co:[18.8957,-99.2294]},
+  {n:"Ferremateriales Gasolina por litro",m:"Coatlán del Río",t:"gasolinera",d:"Alpuyeca - Grutas de Cacahuamilpa 40, 62614 Michapa, Mor., Mexico",tel:"",co:[18.7017,-99.4800]},
+  {n:"GASOLINERA FELIX VILLEGAS TERAN",m:"Coatlán del Río",t:"gasolinera",d:"Reforma 736, San Mateo Ixtla, 62665 Puente de Ixtla, Mor., Mexico",tel:"",co:[18.6225,-99.3208]},
+  {n:"SERVICIO TETECALA S.A. DE C.V.",m:"Coatlán del Río",t:"gasolinera",d:"62626 Tetecala, Morelos, Mexico",tel:"",co:[18.6922,-99.4618]},
+  {n:"Gasolinera",m:"Coatlán del Río",t:"gasolinera",d:"Alvaro Obregón 7, Centro, 62797 Centro, Mor., Mexico",tel:"275 441 2343",co:[18.7357,-99.2612]},
+  {n:"ONE Gasolinería Tepoztlán",m:"Coatlán del Río",t:"gasolinera",d:"Carr Cuernavaca-Tepoztlán KM. 16, Col del Tesoro, 62520 Tepoztlán, Mor., Mexico",tel:"800 148 5555",co:[18.9824,-99.1080]},
+  {n:"Pemex",m:"Coatlán del Río",t:"gasolinera",d:"Carretera Tehuixtla-Tequesquitengo 5, Centro, 62915 Tequesquitengo, Mor., Mexico",tel:"800 736 3900",co:[18.5945,-99.2586]},
+  {n:"Pemex",m:"Coatlán del Río",t:"gasolinera",d:"Carrt. Alpuyeca-Grutas # 8 Esq, C. Santo Domingo, 62630 Mazatepec, Mor., Mexico",tel:"800 736 3900",co:[18.7259,-99.3647]},
+  {n:"Gasolinera Pemex",m:"Coatlán del Río",t:"gasolinera",d:"# 23 Carretera Yautepec - Jojutla Olonia, 62830 Totolapan, Mor., Mexico",tel:"800 736 3900",co:[18.9802,-98.9329]},
+  {n:"Pemex",m:"Coatlán del Río",t:"gasolinera",d:"Km 86 Carretera Mexico-Acapulco, Centro, 62070 Temixco, Mor., Mexico",tel:"800 736 3900",co:[18.8421,-99.2246]},
+  {n:"Gasogrupo Excam",m:"Coatlán del Río",t:"gasolinera",d:"Carretera Tehuixtla - Tilzapotla 1, Jardines de la Herradura, 62660 Puente de Ixtla, Mor., Mexico",tel:"",co:[18.6135,-99.3117]},
+  {n:"Pemex",m:"Coatlán del Río",t:"gasolinera",d:"62585 Campo Sotelo, Morelos, Mexico",tel:"800 736 3900",co:[18.8352,-99.2172]},
+  {n:"GAS Xochitepec",m:"Coatlán del Río",t:"gasolinera",d:"62793 Xochitepec, Morelos, Mexico",tel:"",co:[18.7496,-99.2029]},
+  {n:"Servicio Montecarlo",m:"Coatlán del Río",t:"gasolinera",d:"Carretera México - Acapulco Kilómetro 84, Antonio Barona Centro, 62320 Cuernavaca, Mor., Mexico",tel:"777 322 2324",co:[18.9573,-99.2028]},
+  {n:"Gasolineria",m:"Coatlán del Río",t:"gasolinera",d:"Norte, 62665 Puente de Ixtla, Mor., Mexico",tel:"751 344 0083",co:[18.6322,-99.3228]},
+  {n:"Gasolinera Pemex",m:"Coatlán del Río",t:"gasolinera",d:"Carretera Emiliano Zapata Esq. Granola #1, San Mateo, 62870 Temoac, Mor., Mexico",tel:"800 736 3900",co:[18.7575,-98.7798]},
+  {n:"Pemex",m:"Coatlán del Río",t:"gasolinera",d:"Carr Cuernavaca-Tepoztlán KM. 16, Col del Tesoro, 62520 Tepoztlán, Mor., Mexico",tel:"800 736 3900",co:[18.9825,-99.1081]},
+  {n:"Gasolinera \"Pemex\"",m:"Coatlán del Río",t:"gasolinera",d:"62634 Mazatepec, Morelos, Mexico",tel:"",co:[18.7249,-99.3719]},
+  {n:"Gasolinera Col. Morelos",m:"Coatlán del Río",t:"gasolinera",d:"Sor Juana Inés de La Cruz, Morelos, 62588 Temixco, Mor., Mexico",tel:"",co:[18.8612,-99.2400]},
+  {n:"Hidrosina 421",m:"Coatlán del Río",t:"gasolinera",d:"Carret. Cuernavaca Chilpancingo Km. 21.790 Alpuyeca, 62790 Xochitepec, Mor., Mexico",tel:"55 5262 3860",co:[18.7565,-99.2430]},
+  {n:"Pemex",m:"Coatlán del Río",t:"gasolinera",d:"México 95 100, Adolfo López Mateos (La Parota), Amp Adolfo Lopez Mateos, 62084 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.8692,-99.2259]},
+  // CUAUTLA - GASOLINERAS,
+  {n:"G500",m:"Cuautla",t:"gasolinera",d:"Carr Federal México-Cuautla 381, Empleado Postal, 62748 Cuautla, Mor., Mexico",tel:"735 152 6018",co:[18.8495,-98.9384]},
+  {n:"ONE Gasolinería Cuautla",m:"Cuautla",t:"gasolinera",d:"Km. 98.4, Empleado Postal, 62747 Cuautla, Mor., Mexico",tel:"800 148 5555",co:[18.8477,-98.9383]},
+  {n:"Super Servicio El Polvorín",m:"Cuautla",t:"gasolinera",d:"Carrrt. Cuernavaca-Cuautla Km 40 # 29, El Polvorin 18 de Septiembre, 62751 Cuautla, Mor., Mexico",tel:"735 398 0572",co:[18.8675,-98.9639]},
+  {n:"Gasolinera Pemex",m:"Cuautla",t:"gasolinera",d:"Av Insurgentes # 726, Manantiales, 62746 Cuautla, Mor., Mexico",tel:"800 736 3900",co:[18.8326,-98.9469]},
+  {n:"GASOLINERA ATRIOS",m:"Cuautla",t:"gasolinera",d:"62757 TIERRA LARGA, 62757 Cuautla, Mor., Mexico",tel:"735 397 2243",co:[18.8644,-98.9481]},
+  {n:"Pemex",m:"Cuautla",t:"gasolinera",d:"Libramiento Cuautla-Izucar de Matamoros Km 0.2 # 5, Cuautlixco, 62757 Cuautla, Mor., Mexico",tel:"800 736 3900",co:[18.8505,-98.9355]},
+  {n:"Pemex",m:"Cuautla",t:"gasolinera",d:"Av. Reforma # 175 Esq, No Reelección 24, Emiliano Zapata, 62744 Cuautla, Mor., Mexico",tel:"800 736 3900",co:[18.8215,-98.9482]},
+  {n:"PEMEX",m:"Cuautla",t:"gasolinera",d:"Av Reforma 173, Empleado Postal, 62748 Cuautla, Mor., Mexico",tel:"800 736 3900",co:[18.8471,-98.9392]},
+  {n:"G500 SERVICIO GASOLINERO FEAS CARDELLE, S.A DE C.V",m:"Cuautla",t:"gasolinera",d:"CARR. MEXICO-OAXACA.70 ANTES150, Gabriel Tepepa, 62742 Cuautla, Mor., Mexico",tel:"735 153 4020",co:[18.8060,-98.9434]},
+  {n:"Pemex Plaza Atrios",m:"Cuautla",t:"gasolinera",d:"Central de Abastos, C. Cam. a Calderón, 62757 Peña Flores, Mor., Mexico",tel:"",co:[18.8665,-98.9491]},
+  {n:"PEMEX",m:"Cuautla",t:"gasolinera",d:"Camino, Ex Hacienda del Hospital Num.60, 10 de Abril, 62744 Cuautla, Mor., Mexico",tel:"800 736 3900",co:[18.8188,-98.9696]},
+  {n:"Pemex",m:"Cuautla",t:"gasolinera",d:"Lib. a Izucar de Matamoros Km 2 # 5, Juan Morales, 62757 Cuautla, Mor., Mexico",tel:"800 736 3900",co:[18.8180,-98.9192]},
+  {n:"Estación Amilpas",m:"Cuautla",t:"gasolinera",d:"Av Reforma 4027, Empleado Postal, 62748 Cuautla, Mor., Mexico",tel:"",co:[18.8471,-98.9391]},
+  {n:"Pemex",m:"Cuautla",t:"gasolinera",d:"Carrt, Cuernavaca-Cuautla # 97, Vicente Guerrero, 62748 Cuautla, Mor., Mexico",tel:"800 736 3900",co:[18.8587,-98.9590]},
+  {n:"Pemex",m:"Cuautla",t:"gasolinera",d:"Carrt. Mexico-Cuautla Km 28.3 # 45, Francisco Villa, 62738 Cocoyoc, Mor., Mexico",tel:"800 736 3900",co:[18.8912,-98.9741]},
+  {n:"Gasolinera Integral Azteca",m:"Cuautla",t:"gasolinera",d:"No Reelección 24, Emiliano Zapata, 62744 Cuautla, Mor., Mexico",tel:"",co:[18.8216,-98.9482]},
+  {n:"PEMEX",m:"Cuautla",t:"gasolinera",d:"Km. 98.4 Morelos MX, Empleado Postal, 62747 Cuautla, Mor., Mexico",tel:"800 736 3900",co:[18.8477,-98.9384]},
+  {n:"Migajas gas cuautla",m:"Cuautla",t:"gasolinera",d:"Ferrocarril, Francisco I. Madero, 62742 Cuautla, Mor., Mexico",tel:"",co:[18.8026,-98.9648]},
+  {n:"PEMEX",m:"Cuautla",t:"gasolinera",d:"Del Empleado, 62754 Empleado Municipal, Mor., Mexico",tel:"800 736 3900",co:[18.7858,-98.9055]},
+  {n:"Combugas",m:"Cuautla",t:"gasolinera",d:"Casasano, 62749 Cuautla, Mor., Mexico",tel:"55 1333 2094",co:[18.8560,-98.9581]},
+  {n:"Pemex",m:"Cuautla",t:"gasolinera",d:"Km. 35+290, Cuernavaca-Cuautla, 62736 Cocoyoc, Mor., Mexico",tel:"800 736 3900",co:[18.8882,-98.9969]},
+  {n:"PEMEX",m:"Cuautla",t:"gasolinera",d:"Lib. Cuautla Izucar de Matamoros Km 4+300, 62745 Yecapixtla, Mor., Mexico",tel:"800 736 3900",co:[18.8198,-98.9193]},
+  {n:"Gasolinera Pemex",m:"Cuautla",t:"gasolinera",d:"Carretera Mexico - OaxaCarretera # 1447, Empleado Municipal, 62741 Cuautla, Mor., Mexico",tel:"800 736 3900",co:[18.7831,-98.9029]},
+  {n:"CARBURACIÓN MAS GAS",m:"Cuautla",t:"gasolinera",d:"Cuautla - Jantetelco, Hermenegildo Galeana, 62826 Cuautla, Mor., Mexico",tel:"735 397 4224",co:[18.8323,-98.9230]},
+  {n:"Pemex",m:"Cuautla",t:"gasolinera",d:"Av. Jiquilpan No.2064, Lazaro Cardenas, 62757 Cuautla, Mor., Mexico",tel:"800 736 3900",co:[18.8551,-98.9362]},
+  {n:"Gas Fugaz",m:"Cuautla",t:"gasolinera",d:"Flores Magón 18, Otilio Montaño, 62746 Cuautla, Mor., Mexico",tel:"735 128 7493",co:[18.8160,-98.9402]},
+  {n:"Supergasolinera El libramiento S.A. de C.V.",m:"Cuautla",t:"gasolinera",d:"Carretera Mexico - Oaxaca km. 34, Del Empleado, 62754 Empleado Municipal, Mor., Mexico",tel:"735 302 3610",co:[18.7860,-98.9057]},
+  {n:"GOGAS 8020 Mompani IV",m:"Cuautla",t:"gasolinera",d:"Lib. a, Cuautla - Izucar de Matamoros Km 2, Juan Morales, 562757 Cuautla, Mor., Mexico",tel:"735 117 5748",co:[18.8180,-98.9190]},
+  {n:"Pemex",m:"Cuautla",t:"gasolinera",d:"62846 Los Cerritos, Morelos, Mexico",tel:"800 736 3900",co:[18.9039,-98.9047]},
+  {n:"Estación de Servicio: J01286",m:"Cuautla",t:"gasolinera",d:"Av. Revolución 25, Plan de Ayala, 62743 Cuautla, Mor., Mexico",tel:"735 355 7754",co:[18.8057,-98.9341]},
+  {n:"Estacion de servicio lupico sa de cv",m:"Cuautla",t:"gasolinera",d:"Sin referencia No. 12 40, Emiliano Zapata, 62744 Cuautla, Mor., Mexico",tel:"",co:[18.8283,-98.9585]},
+  {n:"Combugas Cuautla 4",m:"Cuautla",t:"gasolinera",d:"Gabriel Tepepa, 62742 Cuautla, Mor., Mexico",tel:"",co:[18.8063,-98.9395]},
+  // CUERNAVACA - GASOLINERAS,
+  {n:"SERVICIO CUERMEX",m:"Cuernavaca",t:"gasolinera",d:"Lázaro Cárdenas 157A, Antonio Barona, 62329 Cuernavaca, Mor., Mexico",tel:"",co:[18.9502,-99.1900]},
+  {n:"Pemex",m:"Cuernavaca",t:"gasolinera",d:"Autopista Mexico-Acapulco Cuerpo \"B\" Km. 85.5 Antonio Bauona, Col. Paraíso, 62451 Cuernavaca, Mor., Mexico",tel:"",co:[18.9540,-99.1942]},
+  {n:"Gasolineros Anacele Services",m:"Cuernavaca",t:"gasolinera",d:"Av. Domingo Diez 1301, Lomas de la Selva, 62145 Cuernavaca, Mor., Mexico",tel:"777 311 8701",co:[18.9572,-99.2377]},
+  {n:"Pemex- Servicio glorieta la luna",m:"Cuernavaca",t:"gasolinera",d:"Av. Cuauhtémoc 52, Chapultepec, 62399 Cuernavaca, Mor., Mexico",tel:"777 100 1857",co:[18.9229,-99.2108]},
+  {n:"Servicio Las Palmas",m:"Cuernavaca",t:"gasolinera",d:"José Ma. Morelos y Pavón 1000, Las Palmas, 62050 Cuernavaca, Mor., Mexico",tel:"777 312 3587",co:[18.9067,-99.2323]},
+  {n:"Gas Carmona",m:"Cuernavaca",t:"gasolinera",d:"Blvd. Gustavo Díaz Ordaz 36, Acapantzingo, 62440 Cuernavaca, Mor., Mexico",tel:"777 256 3521",co:[18.9151,-99.2207]},
+  {n:"G500 Gasolinera Cerritos Balfer",m:"Cuernavaca",t:"gasolinera",d:"Av, C. Gral.Francisco Villa 114, Rancho Cortes, 62120 Cuernavaca, Mor., Mexico",tel:"777 608 0451",co:[18.9637,-99.2493]},
+  {n:"Gas Las Letis",m:"Cuernavaca",t:"gasolinera",d:"Aurora 4, Jacarandas, 62448 Cuernavaca, Mor., Mexico",tel:"",co:[18.9205,-99.2210]},
+  {n:"Mobil Domingo Diez (Altea)",m:"Cuernavaca",t:"gasolinera",d:"Av. Domingo Diez, No. 1302-A, zona 1, San Cristobal, 62230 Cuernavaca, Mor., Mexico",tel:"",co:[18.9510,-99.2352]},
+  {n:"Pemex",m:"Cuernavaca",t:"gasolinera",d:"Autopista Mexico-Acapulco Km 92+600 Lado \"A, San Miguel Acapantzingo, 62440 Cuernavaca, Mor., Mexico",tel:"",co:[18.9046,-99.2156]},
+  {n:"Pemex",m:"Cuernavaca",t:"gasolinera",d:"José María Morelos No.91, Chipitlan, 62070 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.8956,-99.2295]},
+  {n:"Pemex",m:"Cuernavaca",t:"gasolinera",d:"Av.Leandro Valle No.1005 y, Av Vicente Guerrero, Lomas de la Selva, 62270 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.9323,-99.2306]},
+  {n:"Pemex",m:"Cuernavaca",t:"gasolinera",d:"Av. Adolfo López Mateos S/N, Cuernavaca Centro, y Centro Comercial, 62280 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.9235,-99.2313]},
+  {n:"SERVICIO MARTINEZ HERNANDEZ, S.A. DE C.V.",m:"Cuernavaca",t:"gasolinera",d:"Blvd. Paseo Cuauhnáhuac 315, Alegria, 62469 Cuernavaca, Mor., Mexico",tel:"777 319 8095",co:[18.9202,-99.1947]},
+  {n:"SERVICIO GASOBAN S.A. DE C.V.",m:"Cuernavaca",t:"gasolinera",d:"Av. Cuauhtémoc 133, Manantiales, 62450 Cuernavaca, Mor., Mexico",tel:"777 331 1096",co:[18.9209,-99.2157]},
+  {n:"Gasolinera Servicio Milenio 2000",m:"Cuernavaca",t:"gasolinera",d:"Av. Emiliano Zapata 707, Tlaltenango, 62140 Cuernavaca, Mor., Mexico",tel:"777 317 8363",co:[18.9526,-99.2453]},
+  {n:"G500 Servicio Plaza Cuernavaca",m:"Cuernavaca",t:"gasolinera",d:"Calz. de Leandro Valle Ote. 1005, Lomas de la Selva, 62270 Cuernavaca, Mor., Mexico",tel:"",co:[18.9323,-99.2306]},
+  {n:"Gasolinera Pemex",m:"Cuernavaca",t:"gasolinera",d:"Av.Poder Legislativo Esq. Marino, Mariano Escobedo S/N, zona 1, Lomas de la Selva, 62270 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.9389,-99.2309]},
+  {n:"Pemex",m:"Cuernavaca",t:"gasolinera",d:"Av. Morelos # 400 Esq, Ocampo Pte., La Pradera, 62190 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.9368,-99.2397]},
+  {n:"Servicio Trebol S.A.",m:"Cuernavaca",t:"gasolinera",d:"Av. Plan de Ayala 1500, Cuauhnahuac, 62450 Cuernavaca, Mor., Mexico",tel:"777 316 6054",co:[18.9220,-99.2071]},
+  {n:"Super Servicio de Jiutepec",m:"Cuernavaca",t:"gasolinera",d:"Carretera Federal a Cuautla Kilómetro 3.5, Bugambilias, 62140 Cuernavaca, Mor., Mexico",tel:"777 320 9302",co:[18.9144,-99.1845]},
+  {n:"SUPERSERVICIO CARGAGAS, SA DE CV",m:"Cuernavaca",t:"gasolinera",d:"José María Morelos 68, Quintana Roo, 62060 Cuernavaca, Mor., Mexico",tel:"777 231 4177",co:[18.9000,-99.2310]},
+  {n:"Gasolinera",m:"Cuernavaca",t:"gasolinera",d:"Chamilpa, 62210 Cuernavaca, Mor., Mexico",tel:"275 441 2343",co:[18.9738,-99.2363]},
+  {n:"PEMEX",m:"Cuernavaca",t:"gasolinera",d:"Autopista Mexico-Cuenavaca Km 67, Insurgentes, 62210 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.9741,-99.2366]},
+  {n:"Pemex",m:"Cuernavaca",t:"gasolinera",d:"José María Morelos No. 68, Quintana Roo, 62080 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.8999,-99.2309]},
+  {n:"Promotora Y Operadora de Estaciones de Servicios, S.A. de C.V. (PROESSA)",m:"Cuernavaca",t:"gasolinera",d:"Mexcio-Acapulco Km. 83+400, Antonio Barona, Loma Bonita, 62320 Cuernavaca, Mor., Mexico",tel:"777 100 3286",co:[18.9591,-99.2114]},
+  {n:"Pemex",m:"Cuernavaca",t:"gasolinera",d:"José María Morelos # 14-A, El Polvorin, 62076 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.8899,-99.2286]},
+  {n:"Pemex",m:"Cuernavaca",t:"gasolinera",d:"Blvd. Gustavo Díaz Ordaz No. 36, Acapantzingo, 62440 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.9151,-99.2207]},
+  {n:"Pemex",m:"Cuernavaca",t:"gasolinera",d:"Avenida Morelos 104 Y Privada De Las Rosas, José María Morelos 104, Las Palmas, 62050 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.9046,-99.2316]},
+  {n:"Pemex Service Century 22, S.A. de C.V.",m:"Cuernavaca",t:"gasolinera",d:"Av Vicente Guerrero 760, zona 1, Reforma, 62240 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[18.9441,-99.2294]},
+  // EMILIANO ZAPATA - GASOLINERAS,
+  {n:"bp",m:"Emiliano Zapata",t:"gasolinera",d:"Tejalpa- Zacatepec Carrt. Fed. Emiliano Zapata-Tezoyuca, Centro, 62760 Emiliano Zapata, Mor., Mexico",tel:"800 670 2123",co:[18.8342,-99.1856]},
+  {n:"Hidrosina 51",m:"Emiliano Zapata",t:"gasolinera",d:"No Reelección 385, San Francisco, 62764 Emiliano Zapata, Mor., Mexico",tel:"55 5262 3860",co:[18.8504,-99.1789]},
+  {n:"Pemex",m:"Emiliano Zapata",t:"gasolinera",d:"Avenida, No Reelección Num. 385, San Francisco, 62764 Emiliano Zapata, Mor., Mexico",tel:"800 736 3900",co:[18.8504,-99.1789]},
+  {n:"Gasolinera PEMEX (ESTACIONES DE SERVICIOS DON JUAN)",m:"Emiliano Zapata",t:"gasolinera",d:"Av. Emiliano Zapata 267, Col. 3 de Mayo, 62763 Emiliano Zapata, Mor., Mexico",tel:"",co:[18.8636,-99.2041]},
+  {n:"Gasolinera PEMEX",m:"Emiliano Zapata",t:"gasolinera",d:"Cruce Carrt. Tezoyuca-Zapata, 62760 Emiliano Zapata, Mor., Mexico",tel:"800 736 3900",co:[18.8029,-99.1976]},
+  {n:"Pemex",m:"Emiliano Zapata",t:"gasolinera",d:"Av. Emiliano Zapata No. 121, Los Pinos, 62550 Jiutepec, Mor., Mexico",tel:"800 736 3900",co:[18.8882,-99.1847]},
+  {n:"Hidrosina 50",m:"Emiliano Zapata",t:"gasolinera",d:"Crucero de Tezoyuca Tepetzingo S/N, A Tezoyuca, 62720 Emiliano Zapata, Mor., Mexico",tel:"55 5262 3860",co:[18.8026,-99.1978]},
+  {n:"Gasolinera Estación de servicio PEMEX",m:"Emiliano Zapata",t:"gasolinera",d:"Cuernavaca 14, Atlacomulco, 62560 Emiliano Zapata, Mor., Mexico",tel:"",co:[18.8376,-99.2112]},
+  {n:"Gasolinera Pemex",m:"Emiliano Zapata",t:"gasolinera",d:"Carretera Chiconcuac-Zapata No. 239 Ejido De Santa Ana, A Tezoyuca, 62767 Emiliano Zapata, Mor., Mexico",tel:"800 736 3900",co:[18.8129,-99.1923]},
+  {n:"Combugas ZAPATA 2",m:"Emiliano Zapata",t:"gasolinera",d:"Constitución 132, Centro, 62760 Emiliano Zapata, Mor., Mexico",tel:"",co:[18.8345,-99.1854]},
+  {n:"Corparacion Gasolinera Millenium S.A. de C.V.",m:"Emiliano Zapata",t:"gasolinera",d:"Reelección 385, San Francisco, 62764 Emiliano Zapata, Mor., Mexico",tel:"777 368 1052",co:[18.8503,-99.1789]},
+  {n:"Gas LP El Amate",m:"Emiliano Zapata",t:"gasolinera",d:"Campo Nuevo, 62766 Emiliano Zapata, Mor., Mexico",tel:"",co:[18.8252,-99.1881]},
+  {n:"TotalEnergies Temixco",m:"Emiliano Zapata",t:"gasolinera",d:"Cuernavaca - Chilpancingo Autopista Del Sol Mexico - Acapulco Km. 101+151, 62580 Temixco, Mor., Mexico",tel:"",co:[18.8349,-99.2171]},
+  {n:"Estacion De Servicio Temixco",m:"Emiliano Zapata",t:"gasolinera",d:"av libramiento DIEZ #386 Col Campo Sotelo, Granjas Merida, 62580 Temixco, Mor., Mexico",tel:"3659126",co:[18.8375,-99.2110]},
+  {n:"Pemex",m:"Emiliano Zapata",t:"gasolinera",d:"Gasolinera Pemex, Plutarco Elías Calles, Centro, 62580 Temixco, Mor., Mexico",tel:"800 736 3900",co:[18.8385,-99.2314]},
+  {n:"SERVICIO CALERA CHICA",m:"Emiliano Zapata",t:"gasolinera",d:"62555 Calera Chica, Morelos, Mexico",tel:"777 368 6350",co:[18.8599,-99.1780]},
+  {n:"Gasolinera",m:"Emiliano Zapata",t:"gasolinera",d:"Blvd. Apatlaco 163, Campo del, El Rayo, 62586 Temixco, Mor., Mexico",tel:"275 441 2343",co:[18.8372,-99.2221]},
+  {n:"Pemex",m:"Emiliano Zapata",t:"gasolinera",d:"Avenida Centenario S/N Lote 1 Mz 14 Fraccion \"A, Civac, 62578 Jiutepec, Mor., Mexico",tel:"",co:[18.9102,-99.1688]},
+  {n:"Pemex",m:"Emiliano Zapata",t:"gasolinera",d:"Carretera Estatal Emiliano, Zapata - Zacatepec No.42, Lazaro Cardenas, 62790 Chiconcuac, Mor., Mexico",tel:"800 736 3900",co:[18.7785,-99.2091]},
+  // HUEYAPAN - GASOLINERAS,
+  {n:"Pemex",m:"Hueyapan",t:"gasolinera",d:"Av. Norberto, López Avelar # 12, Xochicalco, 62805 Tetela del Volcán, Mor., Mexico",tel:"800 736 3900",co:[18.8857,-98.7335]},
+  {n:"Román Gas XOCHICALCO",m:"Hueyapan",t:"gasolinera",d:"López Avelar, Xochicalco, 62800 Tetela del Volcán, Mor., Mexico",tel:"735 191 9476",co:[18.8847,-98.7379]},
+  {n:"PEMEX",m:"Hueyapan",t:"gasolinera",d:"México 160, El Polvorin 18 de Septiembre, 62756 Peña Flores, Mor., Mexico",tel:"800 736 3900",co:[18.8676,-98.9637]},
+  {n:"Gasolineria y forrajeria y Granja Santa cruz de cerdos",m:"Hueyapan",t:"gasolinera",d:"Veracruz, Cruz, 74335 Santa Cruz Cuautomatitla, Pue., Mexico",tel:"735 192 1869",co:[18.8877,-98.6587]},
+  {n:"Pemex",m:"Hueyapan",t:"gasolinera",d:"Av. Nacional Mz 10-Lt-11, Zona 1, Santa Rosa, 62738 Oaxtepec, Mor., Mexico",tel:"800 736 3900",co:[18.9189,-98.9700]},
+  {n:"Pemex",m:"Hueyapan",t:"gasolinera",d:"San Miguel, 62540 Tlayacapan, Morelos, Mexico",tel:"800 736 3900",co:[18.9601,-98.9763]},
+  {n:"PEMEX",m:"Hueyapan",t:"gasolinera",d:"Lucio Moreno, 62736 Cocoyoc, Morelos, Mexico",tel:"800 736 3900",co:[18.8899,-98.9846]},
+  {n:"Pemex",m:"Hueyapan",t:"gasolinera",d:"Carretera Amayuca-Barranca Del Muerto Km. 2, Amayuca, 62972 Jantetelco, Mor., Mexico",tel:"800 736 3900",co:[18.7050,-98.8003]},
+  {n:"Gasolinera Cattar #457",m:"Hueyapan",t:"gasolinera",d:"62972, 62792 Jantetelco, Mor., Mexico",tel:"731 351 2400",co:[18.7184,-98.7960]},
+  {n:"Pemex",m:"Hueyapan",t:"gasolinera",d:"a, Crucero No.15, MOR 10, 62820 Yecapixtla, Mor., Mexico",tel:"800 736 3900",co:[18.8901,-98.8871]},
+  {n:"Gasolinera",m:"Hueyapan",t:"gasolinera",d:"62972 Jantetelco, Morelos, Mexico",tel:"275 441 2343",co:[18.7261,-98.7911]},
+  {n:"Pemex",m:"Hueyapan",t:"gasolinera",d:"Carrt. Federal, Yecapixtla-ocuituco # 30, Mexquemeca, 62827 Mexquemeca, Mor., Mexico",tel:"800 736 3900",co:[18.8717,-98.8538]},
+  {n:"Flash Gas Station",m:"Hueyapan",t:"gasolinera",d:"62846 Colonia San Francisco, Morelos, Mexico",tel:"",co:[18.8899,-98.9134]},
+  {n:"TotalEnergies Amayuca",m:"Hueyapan",t:"gasolinera",d:"Carretera Federal Sat. Barbara-I Mat, Jantetelco - Cuautla, 62970 Jantetelco, Mor., Mexico",tel:"",co:[18.7364,-98.8223]},
+  {n:"GAS FAST Tlayacapan",m:"Hueyapan",t:"gasolinera",d:"Carr. Xochimilco - Oaxtepec, 62544 Oaxtepec, Mor., Mexico",tel:"",co:[18.9403,-98.9745]},
+  {n:"Gasolinera Pemex",m:"Hueyapan",t:"gasolinera",d:"Carretera Federal Sta Barbara Izucar De Matamoros Km 102, Tenango, 62978 Jantetelco, Mor., Mexico",tel:"800 736 3900",co:[18.6679,-98.7318]},
+  {n:"Gasolinera G500 Servicio Tepalcingo",m:"Hueyapan",t:"gasolinera",d:"Cuautla-axochiapan, San Martin, 62920 Tepalcingo, Mor., Mexico",tel:"",co:[18.6167,-98.8356]},
+  {n:"Gasolineria",m:"Hueyapan",t:"gasolinera",d:"Cuautla - Izucar de Matamoros, 62975 Mor., Mexico",tel:"751 344 0083",co:[18.7364,-98.8222]},
+  // HUITZILAC - GASOLINERAS,
+  {n:"Servicio Tonalizontla S.A de C.V",m:"Huitzilac",t:"gasolinera",d:"Km. 3 Carretera Huitzilac A 3 Marias Col, Centro, 62510 Huitzilac, Mor., Mexico",tel:"800 736 3900",co:[19.0386,-99.2647]},
+  {n:"Pemex",m:"Huitzilac",t:"gasolinera",d:"Carrt Km 52+500 Huitzilac Morelos MX 62508, Cdad. de México - Cuernavaca, Tres Marias, 62515 Cuernavaca, Mor., Mexico",tel:"800 736 3900",co:[19.0480,-99.2405]},
+  {n:"Pemex",m:"Huitzilac",t:"gasolinera",d:"México 95 Km 49, 62510 Huitzilac, Mor., Mexico",tel:"800 736 3900",co:[19.0849,-99.2248]},
+  // JANTETELCO - GASOLINERAS,
+  {n:"PEMEX",m:"Jantetelco",t:"gasolinera",d:"62972 Amayuca, Morelos, Mexico",tel:"800 736 3900",co:[18.7184,-98.7960]},
+  {n:"Estacion Jantetelco Sonigas",m:"Jantetelco",t:"gasolinera",d:"62974 Morelos, Mexico",tel:"",co:[18.7021,-98.8014]},
+  {n:"Carburacion Gas L.P. Combugas",m:"Jantetelco",t:"gasolinera",d:"Amayuca - Tlacotepec, 62972 Amayuca, Mor., Mexico",tel:"55 1333 2094",co:[18.7271,-98.7904]},
+  {n:"Pemex",m:"Jantetelco",t:"gasolinera",d:"Carrt. Amayuca Barranca Del Muerto Km 12+200, Calle Tepalcingo, 62918 Mor., Mexico",tel:"800 736 3900",co:[18.6163,-98.8356]},
+  // JIUTEPEC - GASOLINERAS,
+  {n:"Gas station Jiutepec Service S.A. de C.V.",m:"Jiutepec",t:"gasolinera",d:"Insurgentes 1, Centro, 62560 Jiutepec, Mor., Mexico",tel:"777 309 3132",co:[18.8902,-99.1732]},
+  {n:"Pemex",m:"Jiutepec",t:"gasolinera",d:"Par Vial Jiutepec # 44, Jiutepec 30-38, Atlacomulco, 62560 Jiutepec, Mor., Mexico",tel:"800 736 3900",co:[18.8894,-99.1997]},
+  {n:"Pemex",m:"Jiutepec",t:"gasolinera",d:"Blvd. Paseo Cuauhnáhuac #192, Tejalpa, 62550 Jiutepec, Mor., Mexico",tel:"800 736 3900",co:[18.9005,-99.1718]},
+  {n:"gasolinera civac, G500",m:"Jiutepec",t:"gasolinera",d:"62550, Civac, 62500 Jiutepec, Mor., Mexico",tel:"777 320 0180",co:[18.9116,-99.1812]},
+  {n:"Hidrosina 52",m:"Jiutepec",t:"gasolinera",d:"Km. 10.1 Carretera Federal México-Cuautla Poblado, Tejalpa, 62550 Jiutepec, Mor., Mexico",tel:"55 5262 3860",co:[18.8951,-99.1664]},
+  {n:"Pemex",m:"Jiutepec",t:"gasolinera",d:"Boulevard CuernavaCarretera - Cuautla S/N, Lomas del Texcal, 62550 Jiutepec, Mor., Mexico",tel:"800 736 3900",co:[18.8904,-99.1439]},
+  {n:"Gas Express Nieto de México",m:"Jiutepec",t:"gasolinera",d:"C. 21 Este 40 Sur-Lote 1, Civac, 62578 Jiutepec, Mor., Mexico",tel:"777 319 7109",co:[18.9129,-99.1704]},
+  {n:"Estación de Servicio López Portillo",m:"Jiutepec",t:"gasolinera",d:"Jiutepec - Yautepec de Zaragoza Km. 16.5, José López Portillo, 62550 Jiutepec, Mor., Mexico",tel:"777 323 1769",co:[18.8904,-99.1275]},
+  {n:"Gasera De Gas LP",m:"Jiutepec",t:"gasolinera",d:"C. 40 - Sur 53, Civac, 62578 Jiutepec, Mor., Mexico",tel:"777 780 0193",co:[18.9126,-99.1699]},
+  {n:"Gasolinera",m:"Jiutepec",t:"gasolinera",d:"Yautepec de Zaragoza-Jiutepec 144, Tejalpa, 62570 Jiutepec, Mor., Mexico",tel:"275 441 2343",co:[18.9006,-99.1719]},
+  {n:"Hidrosina 515",m:"Jiutepec",t:"gasolinera",d:"Blvd. Paseo Cuauhnáhuac 173 Col, Tejalpa, 62570 Jiutepec, Mor., Mexico",tel:"55 5262 3860",co:[18.8979,-99.1660]},
+  {n:"Pemex",m:"Jiutepec",t:"gasolinera",d:"Blvd. Paseo Cuauhnáhuac, Apatlaco, 62573 Jiutepec, Mor., Mexico",tel:"800 736 3900",co:[18.8950,-99.1663]},
+  {n:"Global Gas",m:"Jiutepec",t:"gasolinera",d:"C. 21 Este 4, Civac, 62578 Jiutepec, Mor., Mexico",tel:"777 311 1511",co:[18.9107,-99.1679]},
+  {n:"SERVICIO SAN GASPAR",m:"Jiutepec",t:"gasolinera",d:"Blvd. Paseo Cuauhnáhuac 333, Pedregal de las Fuentes, 62554 Jiutepec, Mor., Mexico",tel:"",co:[18.8881,-99.1623]},
+  {n:"GAS LP",m:"Jiutepec",t:"gasolinera",d:"San Francisco Texcalpan, 62573 Progreso, Morelos, Mexico",tel:"777 504 0579",co:[18.8892,-99.1497]},
+  {n:"Gasolinera Pemex",m:"Jiutepec",t:"gasolinera",d:"Blvd. Paseo Cuauhnáhuac No. 113, Cuauchiles, 62573 Jiutepec, Mor., Mexico",tel:"800 736 3900",co:[18.8877,-99.1623]},
+  {n:"Pemex",m:"Jiutepec",t:"gasolinera",d:"Insurgentes # 1 Esq. Prolong, Insurgentes, 62550 Jiutepec, Mor., Mexico",tel:"800 736 3900",co:[18.8902,-99.1732]},
+  {n:"Pemex",m:"Jiutepec",t:"gasolinera",d:"Yautepec, Carr. Federal A Cuernavaca Km 16.5, Jose Lopez Portillo, 62550 Jiutepec, Mor., Mexico",tel:"800 736 3900",co:[18.8902,-99.1271]},
+  {n:"SERVICIO NECORA",m:"Jiutepec",t:"gasolinera",d:"Blvd. Paseo Cuauhnáhuac 513, Revolucion, 62390 Cuernavaca, Mor., Mexico",tel:"",co:[18.9171,-99.1870]},
+  {n:"Hidrosina 136",m:"Jiutepec",t:"gasolinera",d:"Blvd. Cuahunahuac S/N, Lt Número 8 Mz 149, Revolucion, 62390 Cuernavaca, Mor., Mexico",tel:"55 5262 3860",co:[18.9186,-99.1885]},
+  {n:"Estación de Servicio: E09760",m:"Jiutepec",t:"gasolinera",d:"C. 54 Sur 8, Civac, 62550 Jiutepec, Mor., Mexico",tel:"",co:[18.9103,-99.1683]},
+  {n:"GASOLINERA",m:"Jiutepec",t:"gasolinera",d:"Yautepec de Zaragoza-Jiutepec 17, San Jose, 62574 Jiutepec, Mor., Mexico",tel:"275 441 2343",co:[18.8886,-99.1504]},
+  {n:"Gasera 2",m:"Jiutepec",t:"gasolinera",d:"Tejalpa - Jojutla 50, Centro, 62550 Jiutepec, Mor., Mexico",tel:"",co:[18.8877,-99.1748]},
+  {n:"Gasolinera",m:"Jiutepec",t:"gasolinera",d:"Blvd. Paseo Cuauhnáhuac 5, Tejalpa, 62550 Jiutepec, Mor., Mexico",tel:"275 441 2343",co:[18.8987,-99.1697]},
+  {n:"Estación Gas Popo, Jiutepec",m:"Jiutepec",t:"gasolinera",d:"Jiutepec - Yautepec de Zaragoza 7, Progreso, 62574 Progreso, Mor., Mexico",tel:"777 146 1921",co:[18.8868,-99.1524]},
+  // JOJUTLA - GASOLINERAS,
+  {n:"SERVICIO ZEPEDA",m:"Jojutla",t:"gasolinera",d:"NARCISO MENDOZA No 116, Centro, 62900 Jojutla, Mor., Mexico",tel:"734 342 0805",co:[18.6164,-99.1774]},
+  {n:"GASOLINERA",m:"Jojutla",t:"gasolinera",d:"C. Benito Juárez 103, Centro, 62900 Jojutla, Mor., Mexico",tel:"275 441 2343",co:[18.6167,-99.1827]},
+  {n:"Gasolinera pemex00469",m:"Jojutla",t:"gasolinera",d:"C. Narciso Mendosa 115, Centro, 62900 Jojutla, Mor., Mexico",tel:"",co:[18.6165,-99.1775]},
+  {n:"ESTACION DE SERVICIO \"EL HIGUERON\"",m:"Jojutla",t:"gasolinera",d:"Carretera, Jojutla - El Higuerón, Centro, 62900 Jojutla, Mor., Mexico",tel:"",co:[18.6099,-99.1740]},
+  {n:"GASERA MOLINOS",m:"Jojutla",t:"gasolinera",d:"Jojutla, 62905 Morelos, Mexico",tel:"",co:[18.6391,-99.1849]},
+  {n:"Mobil",m:"Jojutla",t:"gasolinera",d:"Carretera Jojutla - Tlatenchi, Tequesquitengo - Jojutla S/N, Centro, 62900 Jojutla, Mor., Mexico",tel:"734 136 0696",co:[18.6010,-99.2036]},
+  // JONACATEPEC - GASOLINERAS,
+  {n:"Combugas Jonacatepec",m:"Jonacatepec",t:"gasolinera",d:"Sta Lucia, 62936 Jonacatepec de Leandro Valle, Mor., Mexico",tel:"",co:[18.6734,-98.8051]},
+  // MIACATLáN - GASOLINERAS,
+  // OCUITUCO - GASOLINERAS,
+  {n:"PEMEX",m:"Ocuituco",t:"gasolinera",d:"San Marcos 302, San Marcos, 62827 Yecapixtla, Mor., Mexico",tel:"800 736 3900",co:[18.8738,-98.8641]},
+  // PUENTE DE IXTLA - GASOLINERAS,
+  {n:"Gasolinera Pemex",m:"Puente de Ixtla",t:"gasolinera",d:"Avenida Carretera Tehiuixtla No.1 Ampliacion Jardines De La Herr, 62660 Puente de Ixtla, Mor., Mexico",tel:"800 736 3900",co:[18.6135,-99.3117]},
+  // TEMIXCO - GASOLINERAS,
+  {n:"Servicio Temixco",m:"Temixco",t:"gasolinera",d:"México 95 KM 86, Centro, 62580 Temixco, Mor., Mexico",tel:"777 325 2637",co:[18.8420,-99.2246]},
+  {n:"ESTACIÓN BURGOS BRISAS",m:"Temixco",t:"gasolinera",d:"Brisas Florida 34, Brisas, 62584 Temixco, Mor., Mexico",tel:"777 202 0889",co:[18.8450,-99.2187]},
+  {n:"Gasolinera Pemex",m:"Temixco",t:"gasolinera",d:"Av Gral Marcelino García Barragan No. 218, Morelos, 62582 Temixco, Mor., Mexico",tel:"800 736 3900",co:[18.8613,-99.2400]},
+  {n:"Gasolinera Alta Palmira",m:"Temixco",t:"gasolinera",d:"Emiliano Zapata 455, Alta Palmira, 62583 Temixco, Mor., Mexico",tel:"",co:[18.8672,-99.2275]},
+  {n:"Pemex Gas Acatlipa",m:"Temixco",t:"gasolinera",d:"Carrt, Federal México - Acapulco Km 87, 62581 Temixco, Mor., Mexico",tel:"800 736 3900",co:[18.8342,-99.2259]},
+  {n:"TEM ESTACIÓN TEMIXCO",m:"Temixco",t:"gasolinera",d:"Centro, 62586 Temixco, Mor., Mexico",tel:"",co:[18.8334,-99.2268]},
+  {n:"Pemex",m:"Temixco",t:"gasolinera",d:"Brisas, 62584 Temixco, Mor., Mexico",tel:"800 736 3900",co:[18.8496,-99.2200]},
+  {n:"Servicio el diez, SA de cv",m:"Temixco",t:"gasolinera",d:"Autopista del sol México Acapulco Km. 101+151.64, COL:campo sotelo, 62580 Temixco, Mor., Mexico",tel:"777 220 6855",co:[18.8351,-99.2171]},
+  {n:"COMBUSTIBLES LAS BANDERAS, S.A. DE C.V.",m:"Temixco",t:"gasolinera",d:"Adolfo López Mateos 35, Acatlipa Centro, 62590 Temixco, Mor., Mexico",tel:"",co:[18.8193,-99.2326]},
+  {n:"Estación Valero Temixco",m:"Temixco",t:"gasolinera",d:"Cuernavaca - Chilpancingo Autopista Del Sol México - Acapulco KM 101+151, 62580 Temixco, Mor., Mexico",tel:"",co:[18.8349,-99.2173]},
+  {n:"Gasolinera acatlipa",m:"Temixco",t:"gasolinera",d:"Bugambilias 226, Las Rosas, 62586 Temixco, Mor., Mexico",tel:"",co:[18.8179,-99.2248]},
+  {n:"bp",m:"Temixco",t:"gasolinera",d:"Gasolinera El Palomar, Carr. a Aeropuerto de Cuernavaca Km 0 200-Local 13 Y 14, Fracc Los Sabinos, 62790 Xochitepec, Mor., Mexico",tel:"800 670 2123",co:[18.8027,-99.2234]},
+  {n:"Gasolinera bp",m:"Temixco",t:"gasolinera",d:"Yucatán 30, Rio Apatlaco, 62580 Temixco, Mor., Mexico",tel:"",co:[18.8378,-99.2200]},
+  {n:"Gasolinera punta diamante",m:"Temixco",t:"gasolinera",d:"Adolfo López Mateos 34, Acatlipa Centro, 62586 Temixco, Mor., Mexico",tel:"",co:[18.8195,-99.2326]},
+  // TEMOAC - GASOLINERAS,
+  // TEPALCINGO - GASOLINERAS,
+  {n:"Gasolinera",m:"Tepalcingo",t:"gasolinera",d:"Morelos Alpuyeca - Tepalcingo, 62723 Chinameca, Mor., Mexico",tel:"275 441 2343",co:[18.6276,-99.0028]},
+  {n:"Gasolinera Pemex",m:"Tepalcingo",t:"gasolinera",d:"Carretera, Cuautla-axochiapan #6, Barrio San Martin, 62920 Atlatlahucan, Mor., Mexico",tel:"800 736 3900",co:[18.6030,-98.8397]},
+  // TEPOZTLáN - GASOLINERAS,
+  {n:"Gas 0 Tepoztlán",m:"Tepoztlán",t:"gasolinera",d:"Carr Cuernavaca-Tepoztlán kilómetro 15, col.el, 62527 Ahuehuetitla, Mor., Mexico",tel:"777 552 6146",co:[18.9763,-99.1176]},
+  // TETECALA - GASOLINERAS,
+  {n:"Gasolinera Pemex",m:"Tetecala",t:"gasolinera",d:"Carretera Michapa-Puente De Ixtla Lote 20 Km. 2+200, Tetecala, 62620 Tetecala, Mor., Mexico",tel:"800 736 3900",co:[18.6920,-99.4619]},
+  // TETELA DEL VOLCáN - GASOLINERAS,
+  // TLALNEPANTLA - GASOLINERAS,
+  {n:"Estación de gas LP \"Tlalnepantla\"",m:"Tlalnepantla",t:"gasolinera",d:"Carr. Xochimilco - Oaxtepec km 113, 62534 Mor., Mexico",tel:"",co:[19.0065,-98.9878]},
+  // TLALTIZAPáN - GASOLINERAS,
+  {n:"Pemex",m:"Tlaltizapán",t:"gasolinera",d:"5 de 62770, 5 de Febrero 219, Carlos Pacheco, 62770 Tlaltizapán, Morelos, Mexico",tel:"800 736 3900",co:[18.6914,-99.1149]},
+  {n:"Gas cero",m:"Tlaltizapán",t:"gasolinera",d:"Unnamed Road, 62983 Los Presidentes, Mor., Mexico",tel:"734 107 1682",co:[18.6497,-99.1553]},
+  {n:"Gasolinera Pemex",m:"Tlaltizapán",t:"gasolinera",d:"Carretera Zacatepec, Tlaltizapan No. 33, Plan de Ayala, 62770 Zacatepec de Hidalgo, Mor., Mexico",tel:"800 736 3900",co:[18.6584,-99.1843]},
+  // TLAQUILTENANGO - GASOLINERAS,
+  {n:"Estación de carburación",m:"Tlaquiltenango",t:"gasolinera",d:"Cda. del Panteón 2018, Centro, 62980 Tlaquiltenango, Mor., Mexico",tel:"",co:[18.6232,-99.1621]},
+  {n:"EC Gas Texcal",m:"Tlaquiltenango",t:"gasolinera",d:"Gabriel Tepepa, 62980 Tlaquiltenango, Mor., Mexico",tel:"",co:[18.6392,-99.1740]},
+  {n:"Gasolinera galeana",m:"Tlaquiltenango",t:"gasolinera",d:"Carr. Federal Alpuyeca - Jojutla Km. 2.5, Josefa Ortiz de Dominguez, 62780 Zacatepec de Hidalgo, Mor., Mexico",tel:"",co:[18.6305,-99.2080]},
+  {n:"Global gas",m:"Tlaquiltenango",t:"gasolinera",d:"Morelos Alpuyeca - Tepalcingo 1099, 62919 Los Pilares, Mor., Mexico",tel:"777 311 1511",co:[18.6227,-99.1975]},
+  {n:"bp",m:"Tlaquiltenango",t:"gasolinera",d:"Carretera Zacatepec-Tlaltizapan, Plan de Ayala, 62780 Zacatepec de Hidalgo, Mor., Mexico",tel:"800 670 2123",co:[18.6585,-99.1845]},
+  // TLAYACAPAN - GASOLINERAS,
+  {n:"Gasolineria Tlayacapan",m:"Tlayacapan",t:"gasolinera",d:"Carretera Tlayacapan numero 5 Km. 5, Las vivianas, 62540 Tlayacapan, Mor., Mexico",tel:"735 102 1301",co:[18.9282,-99.0263]},
+  {n:"Pemex",m:"Tlayacapan",t:"gasolinera",d:"Tlayacapan, 62540 Col. Texalo, Morelos, Mexico",tel:"800 736 3900",co:[18.9414,-98.9752]},
+  {n:"Gasolinera",m:"Tlayacapan",t:"gasolinera",d:"Santa Ana, 62540 Tlayacapan, Morelos, Mexico",tel:"275 441 2343",co:[18.9608,-98.9825]},
+  {n:"Pemex",m:"Tlayacapan",t:"gasolinera",d:"Carrt. Yautepec-Tlayacapan Km. 5 #5 S/N, 62540 Tlayacapan, Mor., Mexico",tel:"800 736 3900",co:[18.9282,-99.0264]},
+  // TOTOLAPAN - GASOLINERAS,
+  // XOCHITEPEC - GASOLINERAS,
+  // XOXOCOTLA - GASOLINERAS,
+  {n:"Estación de gas LP Xoxocotla",m:"Xoxocotla",t:"gasolinera",d:"Carretera km 3, Alpuyeca-jojutla, 62680 Mor., Mexico",tel:"777 238 8903",co:[18.7083,-99.2523]},
+  {n:"GOGAS 4185 Teques",m:"Xoxocotla",t:"gasolinera",d:"Carr. Federal Alpuyeca - Jojutla km 4.5, Centro, 62660 Xoxocotla Centro, Mor., Mexico",tel:"734 345 5463",co:[18.6907,-99.2511]},
+  {n:"bp",m:"Xoxocotla",t:"gasolinera",d:"Carretera Xoxocotla-Tehuixtla Carretera Estatal- Tehuixtla, Km. 1.5, 62915 Tequesquitengo, Mor., Mexico",tel:"800 670 2123",co:[18.5945,-99.2586]},
+  // YAUTEPEC - GASOLINERAS,
+  {n:"Nueva Gas PEMEX",m:"Yautepec",t:"gasolinera",d:"San Juan 59, El Rocio, 62730 Yautepec de Zaragoza, Mor., Mexico",tel:"",co:[18.8631,-99.0732]},
+  {n:"Gasolineria ulloa sa de cv",m:"Yautepec",t:"gasolinera",d:"62730, Jovito Serrano, 62730 Yautepec de Zaragoza, Mor., Mexico",tel:"735 394 2833",co:[18.8745,-99.0568]},
+  {n:"Estación de Servicio Repsol",m:"Yautepec",t:"gasolinera",d:"Yautepec-cuautla Km 2.5, 62730 Yautepec de Zaragoza, Mor., Mexico",tel:"",co:[18.8924,-99.0333]},
+  {n:"PEMEX",m:"Yautepec",t:"gasolinera",d:"Carretera Federal CuernavaCarretera - Cuautla Km. 27.3, Jovito Serrano, 62730 Yautepec de Zaragoza, Mor., Mexico",tel:"800 736 3900",co:[18.8744,-99.0568]},
+  {n:"PEMEX",m:"Yautepec",t:"gasolinera",d:"San Francisco de Asís TERRENO DE CULTIVO, San Juan, 62733 Yautepec de Zaragoza, Mor., Mexico",tel:"800 736 3900",co:[18.8737,-99.0586]},
+  {n:"Gasolinera Pemex",m:"Yautepec",t:"gasolinera",d:"Maravillas, 62733 Yautepec de Zaragoza, Mor., Mexico",tel:"800 736 3900",co:[18.8667,-99.0861]},
+  {n:"Sonigas",m:"Yautepec",t:"gasolinera",d:"Carretera Cuernavaca - Cuautla 20, El Caracol, 62730 Yautepec, Mor., Mexico",tel:"800 849 9672",co:[18.8689,-99.0834]},
+  {n:"Gas Express Nieto Estación San Juan",m:"Yautepec",t:"gasolinera",d:"San Juan, 62733 Yautepec de Zaragoza, Mor., Mexico",tel:"735 394 5700",co:[18.8708,-99.0681]},
+  {n:"Gas de Morelos",m:"Yautepec",t:"gasolinera",d:"San Juan 200, San Juan, 62733 Yautepec de Zaragoza, Mor., Mexico",tel:"735 394 4940",co:[18.8712,-99.0669]},
+  {n:"Gasolinera Kratos Deus S.A. de C.V.",m:"Yautepec",t:"gasolinera",d:"Autopista La Pera - Cuautla Km 22+700 (23+000 Sentido uno Tramo Oacalco - Oaxtepec, 62546 Tlayacapan, Mor., Mexico",tel:"56 1220 3299",co:[18.9212,-99.0148]},
+  {n:"PEMEX",m:"Yautepec",t:"gasolinera",d:"San Juan 6-9, San Juanito, 62731 Yautepec de Zaragoza, Mor., Mexico",tel:"800 736 3900",co:[18.8688,-99.0692]},
+  {n:"GAS LP",m:"Yautepec",t:"gasolinera",d:"La Perseverancia, Los Huajes, 62732 Yautepec de Zaragoza, Mor., Mexico",tel:"777 504 0579",co:[18.8979,-99.0445]},
+  {n:"Gas 0",m:"Yautepec",t:"gasolinera",d:"Morelos Cuernavaca - Yautepec de Zaragoza 18, 62737 El Zarco, Mor., Mexico",tel:"",co:[18.9181,-99.0673]},
+  // YECAPIXTLA - GASOLINERAS,
+  // ZACATEPEC - GASOLINERAS,
+  {n:"Pemex",m:"Zacatepec",t:"gasolinera",d:"C. Cuauhtémoc No. 2, 62780 Zacatepec de Hidalgo, Mor., Mexico",tel:"800 736 3900",co:[18.6457,-99.2057]},
+  {n:"Pemex",m:"Zacatepec",t:"gasolinera",d:"Jose Luis Mora S/N, Benito Juárez, 62780 Zacatepec de Hidalgo, Mor., Mexico",tel:"800 736 3900",co:[18.6676,-99.1864]},
+  {n:"Gasolinas el greñas",m:"Zacatepec",t:"gasolinera",d:"20 de Noviembre, 62780 Zacatepec de Hidalgo, Mor., Mexico",tel:"",co:[18.6608,-99.1948]},
+  // ZACUALPAN - GASOLINERAS,
+  {n:"ESTACIÓN DE CARBURACIÓN SONIGAS (ZACUALPAN)",m:"Zacualpan",t:"gasolinera",d:"62895 Tlacotepec, Mor., Mexico",tel:"",co:[18.8109,-98.7582]}
+];
+
+let map, markers={}, currentLayer, data=[], editingId=null;
+let API_BASE = window.location.origin + '/api';
+let USE_API = false;
+
+async function testAPI(){
+  try{
+    const ctrl=new AbortController();
+    const t=setTimeout(()=>ctrl.abort(),3000);
+    const r=await fetch(API_BASE+'/stats',{signal:ctrl.signal});
+    clearTimeout(t);
+    if(r.ok)USE_API=true;
+  }catch(e){}
+}
+var apiPromise = testAPI();
+
+async function apiFetch(url, opts={}){
+  if(!USE_API)return null;
+  try{
+    const r=await fetch(API_BASE+url,{headers:{'Content-Type':'application/json'},...opts});
+    if(r.ok)return await r.json();
+  }catch(e){}
+  return null;
+}
+
+if(typeof L==='undefined'){
+  document.body.innerHTML='<div style="padding:40px;text-align:center;color:#e94560;font-size:18px;"><h1>Error</h1><p>Leaflet no pudo cargarse. Verifica tu conexi&oacute;n a Internet.</p></div>';
+  throw new Error('Leaflet not loaded');
+}
+const TILE_LAYERS = {
+  osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',maxZoom:19}),
+  googleStreets: L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',{attribution:'Google',maxZoom:20}),
+  googleSat: L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{attribution:'Google',maxZoom:20})
+};
+
+
+
+function cambiarMapaTipo(){
+  const tipo = document.getElementById('mapaTipo').value;
+  if(currentLayer) map.removeLayer(currentLayer);
+  currentLayer = TILE_LAYERS[tipo].addTo(map);
+}
+
+async function cargarDatos(){
+  // Try API first
+  if(USE_API){
+    const r=await apiFetch('/estaciones');
+    if(r&&r.length){
+      data=r.map(e=>({
+        id:e.id, nombre:e.nombre, tipo:e.tipo, municipio:e.municipio,
+        lat:e.lat, lng:e.lng, direccion:e.direccion||'', telefono:e.telefono||'',
+        contacto:e.contacto||'', fechaVisita:e.fecha_visita||'', proximaVisita:e.proxima_visita||'',
+        responsable:e.responsable||'', litros:e.litros||0, notas:e.notas||'',
+        tanqueMagna:e.tanque_magna||0, tanquePremium:e.tanque_premium||0,
+        tanqueDiesel:e.tanque_diesel||0, vendido:!!e.vendido
+      }));
+      return;
+    }
+  }
+  // Fallback to localStorage
+  const old=localStorage.getItem('gasolineras_morelos_v2');
+  if(old){
+    localStorage.removeItem('gasolineras_morelos_v2');
+    localStorage.removeItem('gasolineras_morelos_v3');
+    data=generarPredeterminadas();
+  } else {
+    const stored=localStorage.getItem('gasolineras_morelos_v3');
+    if(stored){
+      try{data=JSON.parse(stored);if(!data.length)throw 'empty';}
+      catch(e){data=generarPredeterminadas();}
+    } else {
+      data=generarPredeterminadas();
+    }
+  }
+  data.forEach(e=>{if(!e.id)e.id=Date.now()+'_'+Math.random().toString(36).substr(2,5);});
+  guardarStorage();
+}
+
+function generarPredeterminadas(){
+  return GASOLINERAS_DATA.map(g=>({
+    id:Date.now()+'_'+Math.random().toString(36).substr(2,5),
+    nombre:g.n,
+    tipo:g.t||'gasolinera',
+    municipio:g.m,
+    lat:g.co[0],lng:g.co[1],
+    direccion:g.d||'',
+    telefono:g.tel||'',
+    contacto:'',fechaVisita:'',proximaVisita:'',
+    responsable:'',litros:0,notas:'',vendido:false,
+    tanqueMagna:g.t==='gasolinera'?20000:0,
+    tanquePremium:g.t==='gasolinera'?10000:0,
+    tanqueDiesel:g.t==='transporte'?30000:15000
+  }));
+}
+
+function guardarStorage(){
+  localStorage.setItem('gasolineras_morelos_v3',JSON.stringify(data));
+}
+
+function llenarFiltroMunicipios(){
+  const sel=document.getElementById('filtroMunicipio');
+  const zonas=document.getElementById('filtroZona');
+  sel.innerHTML='<option value="">Todos los municipios (36)</option>';
+  MUNICIPIOS.forEach(m=>{sel.innerHTML+=`<option value="${m}">${m}</option>`;});
+  zonas.innerHTML='<option value="">Todas las zonas</option>';
+  ZONAS_LIST.forEach(z=>{
+    const cnt=data.filter(e=>ZONAS[e.municipio]===z).length;
+    zonas.innerHTML+=`<option value="${z}">${z} (${cnt})</option>`;
+  });
+}
+
+function llenarDatalist(){
+  const dl=document.getElementById('municipios-list');
+  dl.innerHTML=MUNICIPIOS.map(m=>`<option value="${m}">`).join('');
+}
+
+function obtenerIcono(e){
+  let color='#e94560', icon='⛽', border='#fff';
+  if(e.tipo==='gasolinera'){
+    if(e.vendido){ color='#2d6a4f'; border='#4ecdc4'; }
+    else { color='#e94560'; border='#ff6b6b'; }
+    icon='⛽';
+  } else {
+    color='#4cc9f0'; icon='🚚';
+  }
+  return L.divIcon({
+    html:'<div style="width:30px;height:30px;background:'+color+';border:2px solid '+border+';border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.4);">'+icon+'</div>',
+    className:'',iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-17]
+  });
+}
+
+function obtenerIconoParque(){
+  return L.divIcon({
+    html:'<div style="width:44px;height:44px;background:linear-gradient(135deg,#4a148c,#7b1fa2);border:3px solid #ce93d8;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 3px 12px rgba(74,20,140,.6);transform:rotate(45deg);"><span style="transform:rotate(-45deg);">&#127981;</span></div>',
+    className:'',iconSize:[44,44],iconAnchor:[22,22],popupAnchor:[0,-24]
+  });
+}
+
+var parquesMarkers = {};
+var parquesCircles = {};
+
+function crearMarcadoresParques(){
+  PARQUES.forEach(function(p){
+    var mkr = L.marker([p.lat, p.lng], {
+      icon: obtenerIconoParque()
+    }).addTo(map).bindPopup(
+      '<div class="popup-custom"><h3>&#127981; '+p.nombre+'</h3><p style="color:#ce93d8;font-size:.72rem;">'+p.municipio+'</p><p>'+p.desc+'</p><p style="margin-top:4px;color:#4ecdc4;"><b>Empresas en el parque:</b></p><ul style="margin:2px 0 0 12px;font-size:.7rem;">'+(p.empresas?p.empresas.map(function(e){return '<li>'+e+'</li>';}).join(''):'<li>Listado no disponible</li>')+'</ul><button onclick="map.setView(['+p.lat+','+p.lng+'],15);abrirParque(\''+p.id+'\')" style="margin-top:6px;background:#4a148c;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;width:100%;">Ver empresas cercanas</button></div>'
+    );
+    mkr.on('click', function(){
+      abrirParque(p.id);
+    });
+    parquesMarkers[p.id] = mkr;
+
+    // Draw a dashed circle around the park (approx ~800m radius)
+    var circle = L.circle([p.lat, p.lng], {
+      radius: 800,
+      color: '#ce93d8',
+      fillColor: '#4a148c',
+      fillOpacity: 0.08,
+      weight: 2,
+      dashArray: '5,8'
+    }).addTo(map);
+    parquesCircles[p.id] = circle;
+  });
+}
+
+function empresasEnParque(parque){
+  var radius = 0.012; // ~1.3km in degrees
+  return data.filter(function(e){
+    if(!e.lat||!e.lng)return false;
+    var dlat = e.lat - parque.lat;
+    var dlng = e.lng - parque.lng;
+    return (dlat*dlat + dlng*dlng) < (radius*radius);
+  });
+}
+
+function abrirParque(id){
+  var p = PARQUES.find(function(x){return x.id===id;});
+  if(!p)return;
+  var emp = empresasEnParque(p);
+  var cont = document.getElementById('listaParques');
+  if(!cont)return;
+  var html = '<div class="plan-item" style="border-left-color:#ce93d8;background:#4a148c;margin-bottom:8px;">';
+  html += '<div class="nombre" style="font-size:.95rem;">&#127981; '+p.nombre+'</div>';
+  html += '<div class="municipio">'+p.municipio+'</div>';
+  html += '<div class="fecha" style="margin-top:2px;">'+p.desc+'</div>';
+  html += '</div>';
+  html += '<div style="font-size:.78rem;color:#ce93d8;margin-bottom:4px;"><b>Empresas de gasolineras/transporte en la zona ('+emp.length+'):</b></div>';
+  if(emp.length===0){
+    html += '<p style="color:#a0a0b0;font-size:.72rem;padding:10px;text-align:center;">No hay empresas de gasolineras o transporte registradas en esta zona.</p>';
+  } else {
+    emp.forEach(function(e){
+      var badge = e.tipo==='gasolinera'?'tipo-gasolinera':'tipo-transporte';
+      html += '<div class="estacion-card" onclick="abrirEdicion(\''+e.id+'\')">';
+      html += '<h4>'+e.nombre+'</h4>';
+      html += '<span class="tipo-badge '+badge+'">'+e.tipo+'</span>';
+      html += '<p>'+e.municipio+(e.direccion?' - '+e.direccion.substring(0,40):'')+'</p>';
+      html += '</div>';
+    });
+  }
+  cont.innerHTML = html;
+  cambiarTab('parques');
+  // Highlight matching markers
+  Object.values(parquesCircles).forEach(function(c){c.setStyle({fillOpacity:0.05,weight:1,color:'#aaa'});});
+  if(parquesCircles[id])parquesCircles[id].setStyle({fillOpacity:0.15,weight:3,color:'#e94560'});
+  // Highlight nearby company markers on the map
+  map.setView([p.lat,p.lng],14);
+}
+
+function actualizarUI(){
+  Object.values(markers).forEach(m=>map.removeLayer(m));
+  markers={};
+  const filtro=document.getElementById('filtroMunicipio').value;
+  const filtroZ=document.getElementById('filtroZona').value;
+  const filtroT=document.getElementById('filtroTipo').value;
+  const filtroV=document.getElementById('filtroVendido').value;
+  const filtroF=document.getElementById('filtroFechaTipo').value;
+  const filtroFD=document.getElementById('filtroFechaDesde').value;
+  const filtroFH=document.getElementById('filtroFechaHasta').value;
+
+  // Park markers always visible unless explicitly filtering by something else that should hide them
+  // Make sure parks are on the map (they might have been removed by previous parques-only filter)
+  Object.keys(parquesMarkers).forEach(function(k){
+    if(!map.hasLayer(parquesMarkers[k]))map.addLayer(parquesMarkers[k]);
+    if(!map.hasLayer(parquesCircles[k]))map.addLayer(parquesCircles[k]);
+  });
+
+  // If "Parques" filter is active, hide regular data markers and show only parks
+  if(filtroT === 'parques'){
+    // Show full parques list in sidebar
+    // Show full parques list in sidebar
+    var cont = document.getElementById('listaEstaciones');
+    var html = '<div style="background:#4a148c;border-radius:4px;padding:8px;margin-bottom:6px;text-align:center;"><div style="font-size:.82rem;color:#e0e0e0;font-weight:bold;">&#127981; Parques Industriales</div></div>';
+    PARQUES.forEach(function(p){
+      var emp = empresasEnParque(p);
+      html += '<div class="plan-item" onclick="abrirParque(\''+p.id+'\')" style="border-left-color:#ce93d8;cursor:pointer;">';
+      html += '<div class="nombre">&#127981; '+p.nombre+'</div>';
+      html += '<div class="municipio">'+p.municipio+'</div>';
+      html += '<div class="fecha" style="margin-top:2px;">'+emp.length+' empresas cerca</div>';
+      html += '</div>';
+    });
+    cont.innerHTML = html;
+    document.getElementById('municipio-count').textContent = PARQUES.length+' parques industriales';
+    return;
+  }
+
+  let filtrados=filtro?data.filter(e=>e.municipio===filtro):data;
+  if(filtroZ)filtrados=filtrados.filter(e=>ZONAS[e.municipio]===filtroZ);
+  if(filtroT)filtrados=filtrados.filter(e=>e.tipo===filtroT);
+  if(filtroV==='vendido')filtrados=filtrados.filter(e=>e.vendido);
+  if(filtroV==='novendido')filtrados=filtrados.filter(e=>e.tipo==='gasolinera'&&!e.vendido);
+  if(filtroF&&(filtroFD||filtroFH)){
+    filtrados=filtrados.filter(e=>{
+      const d=e[filtroF==='ultima'?'fechaVisita':'proximaVisita'];
+      if(!d)return false;
+      if(filtroFD&&d<filtroFD)return false;
+      if(filtroFH&&d>filtroFH)return false;
+      return true;
+    });
+  }
+  filtrados.forEach(e=>{
+    if(!e.lat||!e.lng)return;
+    const mkr=L.marker([e.lat,e.lng],{
+      icon:obtenerIcono(e),
+      draggable:true
+    }).addTo(map).bindPopup(crearPopupHTML(e));
+    mkr.on('click',()=>abrirEdicion(e.id));
+    mkr.on('dragend',function(ev){
+      const pos=ev.target.getLatLng();
+      e.lat=pos.lat;
+      e.lng=pos.lng;
+      guardarStorage();
+      actualizarLista(data);
+      mostrarToast('Posici&oacute;n actualizada');
+    });
+    markers[e.id]=mkr;
+  });
+  if(filtrados.length>0){
+    const validos=filtrados.filter(e=>e.lat&&e.lng);
+    if(validos.length>0){
+      if(filtro){
+        const bounds=L.latLngBounds(validos.map(e=>[e.lat,e.lng]));
+        if(bounds.isValid())map.fitBounds(bounds,{padding:[40,40]});
+      } else if(validos.length===filtrados.length){
+        map.setView(MORELOS_CENTER,DEFAULT_ZOOM);
+      }
+    }
+  }
+  actualizarLista(filtrados);
+  actualizarPlan();
+  actualizarStats();
+}
+
+function crearPopupHTML(e){
+  const tl=e.tipo==='gasolinera'?'Gasolinera':'Transporte';
+  const sv=`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${e.lat},${e.lng}`;
+  return `<div class="popup-custom">
+    <h3>${e.nombre}</h3>
+    <p><strong>Tipo:</strong> ${tl} | <strong>${e.municipio}</strong></p>
+    <p><strong>&Uacute;ltima visita:</strong> ${e.fechaVisita||'Sin visita'}</p>
+    <p><strong>Pr&oacute;xima visita:</strong> ${e.proximaVisita||'No programada'}</p>
+    <p><strong>Responsable:</strong> ${e.responsable||'Sin asignar'}</p>
+    <p><strong>Litros:</strong> ${e.litros||0} | <strong>Diesel:</strong> ${e.tanqueDiesel||0}L</p>
+    <div style="margin-top:4px;display:flex;gap:4px;">
+      <a href="${sv}" target="_blank" style="display:block;text-align:center;background:#4cc9f0;color:#000;border:none;padding:3px 10px;border-radius:3px;cursor:pointer;font-size:.75rem;text-decoration:none;">Street View</a>
+    </div>
+  </div>`;
+}
+
+function actualizarLista(filtrados){
+  const cont=document.getElementById('listaEstaciones');
+  const countEl=document.getElementById('municipio-count');
+  if(!filtrados)filtrados=data;
+  const agrupados={};
+  filtrados.forEach(e=>{
+    const m=e.municipio||'Sin municipio';
+    if(!agrupados[m])agrupados[m]=[];
+    agrupados[m].push(e);
+  });
+  const total=filtrados.length;
+  const municipiosVisibles=Object.keys(agrupados).length;
+  countEl.textContent=`${total} estaciones en ${municipiosVisibles} municipio${municipiosVisibles!==1?'s':''}`;
+  let html='';
+  const orden=Object.keys(agrupados).sort();
+  orden.forEach(m=>{
+    html+=`<div class="municipio-group">${m} (${agrupados[m].length})</div>`;
+    agrupados[m].forEach(e=>{
+      const bc=e.tipo==='gasolinera'?'tipo-gasolinera':'tipo-transporte';
+      const tl=e.tipo==='gasolinera'?'Gasolinera':'Transporte';
+      const vend=e.vendido?'<span style="color:#2d6a4f;font-weight:bold;">&check; VENDIDO</span>':'<span style="color:#e94560;">&cross; SIN VENTA</span>';
+      const hoy=new Date();
+      let pc='';
+      if(e.proximaVisita){const p=new Date(e.proximaVisita+'T00:00:00');if(p<hoy)pc='vencida';}
+      html+=`<div class="estacion-card" onclick="abrirEdicion('${e.id}')">
+        <h4>${e.nombre}</h4>
+        <span class="tipo-badge ${bc}">${tl}</span>
+        ${e.tipo==='gasolinera'?'<span style="font-size:.65rem;margin-left:4px;">'+vend+'</span>':''}
+        <span style="font-size:.68rem;color:#a0a0b0;margin-left:4px;">${e.municipio}</span>
+        <p>${e.direccion||''}</p>
+        <div class="ultima-visita">&Uacute;ltima: ${e.fechaVisita||'Nunca'}</div>
+        <div class="proxima-visita ${pc}">Pr&oacute;xima: ${e.proximaVisita||'No programada'}</div>
+      </div>`;
+    });
+  });
+  cont.innerHTML=html||'<p style="color:#a0a0b0;text-align:center;padding:20px;">No hay resultados</p>';
+}
+
+function filtrarMapa(){actualizarUI();}
+
+function filtrarLista(texto){
+  if(!texto){actualizarLista(data);return;}
+  const t=texto.toLowerCase();
+  const f=data.filter(e=>
+    (e.nombre&&e.nombre.toLowerCase().includes(t))||
+    (e.municipio&&e.municipio.toLowerCase().includes(t))||
+    (e.direccion&&e.direccion.toLowerCase().includes(t))
+  );
+  actualizarLista(f);
+}
+
+
+
+function actualizarPlan(){
+  const cont=document.getElementById('planAccion');
+  const hoy=new Date();
+  const ordenados=data.filter(e=>e.proximaVisita).sort((a,b)=>new Date(a.proximaVisita+'T00:00:00')-new Date(b.proximaVisita+'T00:00:00'));
+  if(!ordenados.length){
+    cont.innerHTML='<p style="color:#a0a0b0;text-align:center;padding:20px;">No hay visitas programadas. Asigne fechas de pr&oacute;xima visita desde el Directorio.</p>';
+    return;
+  }
+  let html=`<div style="margin-bottom:6px;font-size:.72rem;color:#a0a0b0;">${ordenados.length} visita${ordenados.length!==1?'s':''} programada${ordenados.length!==1?'s':''}</div>`;
+  ordenados.forEach(e=>{
+    const p=new Date(e.proximaVisita+'T00:00:00');
+    const d=Math.ceil((p-hoy)/(86400000));
+    let est='';
+    if(d<0)est='<span style="color:#e94560;">(VENCIDA)</span>';
+    else if(d===0)est='<span style="color:#ffd700;">(HOY)</span>';
+    else if(d<=3)est=`<span style="color:#ffa500;">(en ${d}d)</span>`;
+    else est=`<span style="color:#4ecdc4;">(en ${d}d)</span>`;
+    html+=`<div class="plan-item" onclick="abrirEdicion('${e.id}')">
+      <div class="fecha">${e.proximaVisita} ${est}</div>
+      <div class="nombre">${e.nombre}</div>
+      <div class="municipio">${e.municipio}</div>
+      <div class="responsable">Responsable: ${e.responsable||'Sin asignar'}</div>
+      <div class="litros">Litros: ${e.litros||0} | Diesel: ${e.tanqueDiesel||0}L</div>
+    </div>`;
+  });
+  cont.innerHTML=html;
+}
+
+function actualizarStats(){
+  const g=data.filter(e=>e.tipo==='gasolinera').length;
+  const t=data.filter(e=>e.tipo==='transporte').length;
+  const v=data.filter(e=>e.fechaVisita).length;
+  const p=data.filter(e=>e.proximaVisita&&new Date(e.proximaVisita+'T00:00:00')>=new Date()).length;
+  const vendidas=data.filter(e=>e.tipo==='gasolinera'&&e.vendido).length;
+  const noVendidas=g-vendidas;
+  document.getElementById('totalGasolineras').textContent=g;
+  document.getElementById('totalTransporte').textContent=t;
+  document.getElementById('totalVisitas').textContent=v;
+  document.getElementById('visitasPendientes').textContent=p;
+  document.getElementById('totalVendidas').textContent=vendidas;
+  document.getElementById('totalNoVendidas').textContent=noVendidas;
+}
+
+function llenarRutaMunicipios(){
+  const sel=document.getElementById('rutaMunicipio');
+  sel.innerHTML='<option value="">Municipio...</option>';
+  MUNICIPIOS.forEach(m=>{
+    const cnt=data.filter(e=>e.municipio===m&&e.lat&&e.lng).length;
+    if(cnt>0)sel.innerHTML+=`<option value="${m}">${m} (${cnt})</option>`;
+  });
+}
+
+function haversine(lat1,lng1,lat2,lng2){
+  const R=6371;
+  const dLat=(lat2-lat1)*Math.PI/180;
+  const dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+let rutaPolyline=null,rutaNumeros=[];
+
+function generarRuta(){
+  limpiarRuta();
+  const mun=document.getElementById('rutaMunicipio').value;
+  const tipo=document.getElementById('rutaTipo').value;
+  if(!mun){mostrarToast('Selecciona un municipio','error');return;}
+  let pts=data.filter(e=>e.municipio===mun&&e.lat&&e.lng);
+  if(tipo)pts=pts.filter(e=>e.tipo===tipo);
+  if(pts.length<2){mostrarToast('Se necesitan al menos 2 puntos en '+mun,'error');return;}
+  const order=[pts.shift()];
+  while(pts.length>0){
+    const last=order[order.length-1];
+    let minD=Infinity,minI=-1;
+    for(let i=0;i<pts.length;i++){
+      const d=haversine(last.lat,last.lng,pts[i].lat,pts[i].lng);
+      if(d<minD){minD=d;minI=i;}
+    }
+    order.push(pts.splice(minI,1)[0]);
+  }
+  rutaPolyline=L.polyline(order.map(e=>[e.lat,e.lng]),{color:'#ff6b6b',weight:3,opacity:.7,dashArray:'8,6'}).addTo(map);
+  order.forEach((e,i)=>{
+    const num=i+1;
+    const icon=L.divIcon({
+      html:'<div style="width:22px;height:22px;background:#e94560;color:#fff;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;box-shadow:0 2px 6px rgba(0,0,0,.5);">'+num+'</div>',
+      className:'',iconSize:[22,22],iconAnchor:[11,11]
+    });
+    const mkr=L.marker([e.lat,e.lng],{icon}).addTo(map).bindPopup('<b>'+num+'. '+e.nombre+'</b><br>'+e.municipio);
+    rutaNumeros.push(mkr);
+  });
+  const bounds=L.latLngBounds(order.map(e=>[e.lat,e.lng]));
+  map.fitBounds(bounds,{padding:[50,50]});
+  const totalKm=order.reduce((s,e,i)=>{
+    if(i===0)return 0;
+    return s+haversine(order[i-1].lat,order[i-1].lng,e.lat,e.lng);
+  },0);
+  document.getElementById('rutaInfo').innerHTML=order.length+' paradas | ~'+totalKm.toFixed(1)+' km total';
+  let html='<div style="font-size:.68rem;color:#a0a0b0;margin-bottom:2px;">Orden de visita:</div>';
+  order.forEach((e,i)=>{
+    const dist=i>0?'+'+haversine(order[i-1].lat,order[i-1].lng,e.lat,e.lng).toFixed(1)+'km':'';
+    html+='<div style="display:flex;gap:4px;padding:2px 4px;border-bottom:1px solid #0f3460;font-size:.65rem;cursor:pointer;" onclick="map.setView(['+e.lat+','+e.lng+'],16)"><span style="background:#e94560;color:#fff;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;flex-shrink:0;">'+(i+1)+'</span><span style="flex:1;color:#e0e0e0;">'+e.nombre+'</span><span style="color:#a0a0b0;">'+dist+'</span></div>';
+  });
+  document.getElementById('rutaLista').innerHTML=html;
+}
+
+function limpiarRuta(){
+  if(rutaPolyline)map.removeLayer(rutaPolyline);
+  rutaNumeros.forEach(m=>map.removeLayer(m));
+  rutaNumeros=[];rutaPolyline=null;
+  document.getElementById('rutaInfo').innerHTML='';
+  document.getElementById('rutaLista').innerHTML='';
+}
+
+function abrirEdicion(id){
+  const e=data.find(d=>d.id===id);
+  if(!e)return;
+  editingId=id;
+  document.getElementById('modalTitle').textContent=e.tipo==='gasolinera'?'Gasolinera - '+e.municipio:'Transporte - '+e.municipio;
+  document.getElementById('editId').value=e.id;
+  document.getElementById('editNombre').value=e.nombre||'';
+  document.getElementById('editTipo').value=e.tipo||'gasolinera';
+  document.getElementById('editMunicipio').value=e.municipio||'';
+  document.getElementById('editDireccion').value=e.direccion||'';
+  document.getElementById('editTelefono').value=e.telefono||'';
+  document.getElementById('editContacto').value=e.contacto||'';
+  document.getElementById('editCoords').value=(e.lat&&e.lng)?`${e.lat.toFixed(4)}, ${e.lng.toFixed(4)}`:'';
+  document.getElementById('editFechaVisita').value=e.fechaVisita||'';
+  document.getElementById('editProximaVisita').value=e.proximaVisita||'';
+  document.getElementById('editResponsable').value=e.responsable||'';
+  document.getElementById('editLitros').value=e.litros||0;
+  document.getElementById('editNotas').value=e.notas||'';
+  document.getElementById('editVendido').checked=e.vendido||false;
+  document.getElementById('editTanqueMagna').value=e.tanqueMagna||0;
+  document.getElementById('editTanquePremium').value=e.tanquePremium||0;
+  document.getElementById('editTanqueDiesel').value=e.tanqueDiesel||0;
+  document.getElementById('modalOverlay').classList.add('active');
+  // Auto-buscar coordenadas
+  setTimeout(()=>{
+    document.getElementById('editSearchAddr').value=e.nombre+' '+e.municipio;
+    buscarDireccion();
+  },300);
+}
+
+let pickerActive=false;
+
+function activarPickerCoords(){
+  pickerActive=true;
+  cerrarModal();
+  map.once('click',function(ev){
+    const ll=ev.latlng;
+    const id=document.getElementById('editId').value;
+    const e=data.find(d=>d.id===id);
+    if(e){
+      e.lat=+ll.lat.toFixed(4);
+      e.lng=+ll.lng.toFixed(4);
+      guardarStorage();
+      actualizarUI();
+      setTimeout(()=>abrirEdicion(id),100);
+      mostrarToast('Coordenadas asignadas: '+ll.lat.toFixed(4)+', '+ll.lng.toFixed(4));
+    }
+    pickerActive=false;
+  });
+  mostrarToast('Haz clic en el mapa para se&ntilde;alar la ubicaci&oacute;n');
+}
+
+function buscarDireccion(){
+  const q=document.getElementById('editSearchAddr').value.trim()+' Morelos Mexico';
+  if(!q){mostrarToast('Escribe una direcci&oacute;n','error');return;}
+  const div=document.getElementById('searchResults');
+  div.innerHTML='<div style="color:#a0a0b0;font-size:.75rem;">Buscando...</div>';
+  div.style.display='block';
+  const url='https://nominatim.openstreetmap.org/search?format=json&limit=5&q='+encodeURIComponent(q);
+  fetch(url,{headers:{'User-Agent':'GasolinerasMorelos/1.0'}})
+    .then(r=>r.json())
+    .then(results=>{
+      if(!results||!results.length){
+        div.innerHTML='<div style="color:#e94560;font-size:.75rem;">Sin resultados. Intenta con otro nombre.</div>';
+        return;
+      }
+      div.innerHTML=results.map((r,i)=>{
+        const lat=parseFloat(r.lat).toFixed(4);
+        const lon=parseFloat(r.lon).toFixed(4);
+        const name=r.display_name.split(',').slice(0,4).join(',');
+        return `<div onclick="seleccionarResultado(${i})" style="padding:4px 6px;cursor:pointer;border-bottom:1px solid #0f3460;font-size:.72rem;color:#e0e0e0;transition:background .2s;" onmouseover="this.style.background='#0f3460'" onmouseout="this.style.background='transparent'">
+          <span style="color:#4ecdc4;">&#9679;</span> <strong>${r.name||'Sin nombre'}</strong><br>
+          <span style="color:#a0a0b0;">${name}</span>
+          <span style="color:#e94560;font-size:.65rem;"> [${lat}, ${lon}]</span>
+        </div>`;
+      }).join('');
+      window._searchResults=results;
+    })
+    .catch(err=>{
+      div.innerHTML='<div style="color:#e94560;font-size:.75rem;">Error al buscar. Verifica conexi&oacute;n.</div>';
+    });
+}
+
+function seleccionarResultado(idx){
+  const results=window._searchResults;
+  if(!results||!results[idx])return;
+  const r=results[idx];
+  const lat=parseFloat(r.lat).toFixed(4);
+  const lon=parseFloat(r.lon).toFixed(4);
+  document.getElementById('editCoords').value=lat+', '+lon;
+  document.getElementById('editDireccion').value=r.display_name.split(',').slice(0,4).join(',');
+  document.getElementById('searchResults').innerHTML=`<div style="color:#4ecdc4;font-size:.72rem;">&#10003; Seleccionado: ${lat}, ${lon}</div>`;
+
+  const e=data.find(d=>d.id===document.getElementById('editId').value);
+  if(e){
+    e.lat=parseFloat(lat);
+    e.lng=parseFloat(lon);
+    guardarStorage();
+    actualizarUI();
+    setTimeout(()=>{if(markers[e.id])map.setView([e.lat,e.lng],16);},200);
+  }
+  mostrarToast('Ubicaci&oacute;n actualizada desde OSM');
+}
+
+function abrirGoogleMaps(){
+  const el=document.getElementById('editCoords');
+  const partes=el.value.split(',').map(s=>parseFloat(s.trim()));
+  if(partes.length===2&&!isNaN(partes[0])&&!isNaN(partes[1])){
+    window.open(`https://www.google.com/maps?q=${partes[0]},${partes[1]}`,'_blank');
+  } else {
+    mostrarToast('Primero establece coordenadas v&aacute;lidas','error');
+  }
+}
+
+function abrirStreetView(){
+  const el=document.getElementById('editCoords');
+  const partes=el.value.split(',').map(s=>parseFloat(s.trim()));
+  if(partes.length===2&&!isNaN(partes[0])&&!isNaN(partes[1])){
+    window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${partes[0]},${partes[1]}`,'_blank');
+  } else {
+    mostrarToast('Primero establece coordenadas v&aacute;lidas','error');
+  }
+}
+
+function extraerCoordsDeUrl(){
+  const url=document.getElementById('editGmapsUrl').value.trim();
+  if(!url){mostrarToast('Pega un enlace de Google Maps','error');return;}
+  // Handle @lat,lng,zoom pattern
+  const atMatch=url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if(atMatch){
+    const lat=parseFloat(atMatch[1]).toFixed(4);
+    const lng=parseFloat(atMatch[2]).toFixed(4);
+    document.getElementById('editCoords').value=lat+', '+lng;
+    const e=data.find(d=>d.id===document.getElementById('editId').value);
+    if(e){e.lat=parseFloat(lat);e.lng=parseFloat(lng);guardarStorage();actualizarUI();}
+    mostrarToast('Coordenadas extra&iacute;das: '+lat+', '+lng);
+    return;
+  }
+  // Handle /place/.../data=... pattern with 3m4!11m3 or !8m2!3d...!4d...
+  const latMatch=url.match(/!3d(-?\d+\.\d+)/i);
+  const lngMatch=url.match(/!4d(-?\d+\.\d+)/i);
+  if(latMatch&&lngMatch){
+    const lat=parseFloat(latMatch[1]).toFixed(4);
+    const lng=parseFloat(lngMatch[1]).toFixed(4);
+    document.getElementById('editCoords').value=lat+', '+lng;
+    const e=data.find(d=>d.id===document.getElementById('editId').value);
+    if(e){e.lat=parseFloat(lat);e.lng=parseFloat(lng);guardarStorage();actualizarUI();}
+    mostrarToast('Coordenadas extra&iacute;das: '+lat+', '+lng);
+    return;
+  }
+  mostrarToast('No se encontraron coordenadas en el enlace. Abre Google Maps y copia la URL de la barra.','error');
+}
+
+function marcarVendido(){
+  const e=data.find(d=>d.id===document.getElementById('editId').value);
+  if(e){e.vendido=document.getElementById('editVendido').checked;guardarStorage();actualizarUI();}
+}
+function cerrarModal(){document.getElementById('modalOverlay').classList.remove('active');editingId=null;}
+
+async function guardarEstacion(){
+  const id=document.getElementById('editId').value;
+  const e=data.find(d=>d.id===id);
+  if(!e)return;
+  e.nombre=document.getElementById('editNombre').value.trim()||e.nombre;
+  e.tipo=document.getElementById('editTipo').value;
+  e.municipio=document.getElementById('editMunicipio').value.trim();
+  e.direccion=document.getElementById('editDireccion').value.trim();
+  e.telefono=document.getElementById('editTelefono').value.trim();
+  e.contacto=document.getElementById('editContacto').value.trim();
+  e.fechaVisita=document.getElementById('editFechaVisita').value;
+  e.proximaVisita=document.getElementById('editProximaVisita').value;
+  e.responsable=document.getElementById('editResponsable').value.trim();
+  e.litros=parseFloat(document.getElementById('editLitros').value)||0;
+  e.notas=document.getElementById('editNotas').value.trim();
+  e.vendido=document.getElementById('editVendido').checked;
+  e.tanqueMagna=parseFloat(document.getElementById('editTanqueMagna').value)||0;
+  e.tanquePremium=parseFloat(document.getElementById('editTanquePremium').value)||0;
+  e.tanqueDiesel=parseFloat(document.getElementById('editTanqueDiesel').value)||0;
+  const coords=document.getElementById('editCoords').value.trim();
+  if(coords){
+    const parts=coords.split(',').map(parseFloat);
+    if(parts.length===2&&!isNaN(parts[0])&&!isNaN(parts[1])){e.lat=parts[0];e.lng=parts[1];}
+  }
+  guardarStorage();
+  actualizarUI();
+  cerrarModal();
+  if(USE_API){
+    await fetch(API_BASE+'/estaciones/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre:e.nombre,tipo:e.tipo,municipio:e.municipio,direccion:e.direccion,telefono:e.telefono,lat:e.lat,lng:e.lng,contacto:e.contacto,fechaVisita:e.fechaVisita,proximaVisita:e.proximaVisita,responsable:e.responsable,litros:e.litros,notas:e.notas,tanqueMagna:e.tanqueMagna,tanquePremium:e.tanquePremium,tanqueDiesel:e.tanqueDiesel,vendido:e.vendido})}).catch(()=>{});
+  }
+  mostrarToast('Datos guardados correctamente');
+}
+
+async function eliminarEstacion(){
+  const id=document.getElementById('editId').value;
+  if(!confirm('Eliminar esta estaci\\u00f3n?'))return;
+  data=data.filter(d=>d.id!==id);
+  guardarStorage();
+  actualizarUI();
+  cerrarModal();
+  if(USE_API){await fetch(API_BASE+'/estaciones/'+id,{method:'DELETE'}).catch(()=>{});}
+  mostrarToast('Estaci\\u00f3n eliminada','error');
+}
+
+async function agregarNuevo(){
+  let id=Date.now()+'_'+Math.random().toString(36).substr(2,5);
+  if(USE_API){
+    const r=await apiFetch('/estaciones',{method:'POST',body:JSON.stringify({nombre:'Nueva Estaci\\u00f3n',tipo:'gasolinera',lat:MORELOS_CENTER[0]+(Math.random()-0.5)*0.1,lng:MORELOS_CENTER[1]+(Math.random()-0.5)*0.1})});
+    if(r&&r.id)id=r.id;
+  }
+  const nueva={
+    id, nombre:'Nueva Estaci\\u00f3n', tipo:'gasolinera', municipio:'',
+    lat:MORELOS_CENTER[0]+(Math.random()-0.5)*0.1, lng:MORELOS_CENTER[1]+(Math.random()-0.5)*0.1,
+    direccion:'',telefono:'',contacto:'', fechaVisita:'',proximaVisita:'',
+    responsable:'',litros:0,notas:'', tanqueMagna:0,tanquePremium:0,tanqueDiesel:0
+  };
+  data.push(nueva);
+  guardarStorage();
+  actualizarUI();
+  abrirEdicion(id);
+  mostrarToast('Nueva estaci\\u00f3n agregada');
+}
+
+function descargarExcel(){
+  var params = new URLSearchParams();
+  var t = document.getElementById('filtroTipo').value;
+  var m = document.getElementById('filtroMunicipio').value;
+  var z = document.getElementById('filtroZona').value;
+  var v = document.getElementById('filtroVendido').value;
+  if (t) params.set('tipo', t);
+  if (m) params.set('municipio', m);
+  if (z) params.set('zona', z);
+  if (v) params.set('vendido', v);
+  var nombre = 'empresas';
+  if (t) nombre += '_' + t;
+  if (m) nombre += '_' + m;
+  nombre += '.xlsx';
+  var link = window.location.origin + '/api/exportar-excel?' + params.toString();
+  var a = document.createElement('a');
+  a.href = link;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  mostrarToast('Descargando ' + nombre + '...');
+}
+
+function exportarDatos(){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`gasolineras_morelos_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  mostrarToast('Datos exportados correctamente');
+}
+
+function importarDatos(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const imported=JSON.parse(e.target.result);
+      if(!Array.isArray(imported))throw new Error('Formato inv&aacute;lido');
+      imported.forEach(item=>{if(!item.id)item.id=Date.now()+'_'+Math.random().toString(36).substr(2,5);});
+      if(confirm(`Importar ${imported.length} registros? Esto reemplazar&aacute; los datos actuales.`)){
+        data=imported;
+        guardarStorage();
+        actualizarUI();
+        mostrarToast(`${imported.length} registros importados`);
+      }
+    }catch(err){mostrarToast('Error al importar: '+err.message,'error');}
+  };
+  reader.readAsText(file);
+  event.target.value='';
+}
+
+function mostrarToast(msg,tipo){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast'+(tipo==='error'?' error':'');
+  t.style.display='block';
+  setTimeout(()=>{t.style.display='none';},3000);
+}
+
+
+// ===== GASTOS DE OPERACION =====
+let gastos = [];
+
+async function cargarGastos(){
+  // Try API first
+  if(USE_API){
+    const r=await apiFetch('/gastos');
+    if(r&&r.length){gastos=r;return;}
+  }
+  // Fallback to localStorage
+  const stored=localStorage.getItem('gasolineras_gastos');
+  if(stored){try{gastos=JSON.parse(stored);}catch(e){gastos=[];}}
+  if(!Array.isArray(gastos))gastos=[];
+}
+
+function guardarGastos(){
+  localStorage.setItem('gasolineras_gastos',JSON.stringify(gastos));
+}
+
+function cambiarTab(tab,btn){
+  document.querySelectorAll('.sidebar-tabs button').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
+  if(!btn){
+    document.querySelectorAll('.sidebar-tabs button').forEach(function(b){
+      if(b.textContent.trim().toLowerCase()===tab.toLowerCase()||b.getAttribute('data-tab')===tab)btn=b;
+    });
+  }
+  if(btn)btn.classList.add('active');
+  document.getElementById('panel-'+tab).classList.add('active');
+  if(tab==='plan'){actualizarPlan();llenarRutaMunicipios();}
+  if(tab==='gastos')actualizarGastos();
+}
+
+function actualizarGastos(){
+  const cont=document.getElementById('listaGastos');
+  const totalEl=document.getElementById('totalGastos');
+  const mesFiltro=document.getElementById('filtroGastoMes').value;
+  const catFiltro=document.getElementById('filtroGastoCategoria').value;
+  let filtrados=[...gastos];
+  if(mesFiltro)filtrados=filtrados.filter(g=>g.fecha&&g.fecha.slice(5,7)===mesFiltro);
+  if(catFiltro)filtrados=filtrados.filter(g=>g.categoria===catFiltro);
+  const total=filtrados.reduce((s,g)=>s+parseFloat(g.monto||0),0);
+  totalEl.textContent=filtrados.length+' gasto'+(filtrados.length!==1?'s':'')+' | Total: $'+total.toFixed(2);
+  if(!filtrados.length){
+    cont.innerHTML='<p style="color:#a0a0b0;text-align:center;padding:20px;">No hay gastos registrados.</p>';
+    return;
+  }
+  const ordenados=filtrados.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  let html='';
+  ordenados.forEach(g=>{
+    const catColors={Combustible:'#e94560',Mantenimiento:'#ffa500',Viaticos:'#4ecdc4',Oficina:'#7209b7',Sueldos:'#f72585',Impuestos:'#e94560',Seguros:'#4cc9f0',Otro:'#a0a0b0'};
+    html+='<div class="estacion-card" onclick="abrirEdicionGasto(\''+g.id+'\')" style="border-left:3px solid '+(catColors[g.categoria]||'#a0a0b0')+';"><div style="display:flex;justify-content:space-between;align-items:start;"><h4 style="flex:1;">'+g.concepto+'</h4><span style="color:#4ecdc4;font-weight:bold;font-size:.82rem;">$'+parseFloat(g.monto||0).toFixed(2)+'</span></div><span class="tipo-badge" style="background:'+(catColors[g.categoria]||'#a0a0b0')+';color:#fff;font-size:.65rem;">'+g.categoria+'</span><span style="font-size:.68rem;color:#a0a0b0;margin-left:4px;">'+g.fecha+'</span><p style="font-size:.7rem;color:#888;margin-top:2px;">'+((g.notas||'').substring(0,60))+(((g.notas||'').length>60)?'...':'')+'</p></div>';
+  });
+  cont.innerHTML=html;
+}
+
+function agregarGasto(){
+  document.getElementById('gastoModalTitle').textContent='Nuevo Gasto de Operaci\u00f3n';
+  document.getElementById('editGastoId').value='';
+  document.getElementById('editGastoConcepto').value='';
+  document.getElementById('editGastoCategoria').value='Combustible';
+  document.getElementById('editGastoMonto').value='';
+  document.getElementById('editGastoFecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('editGastoNotas').value='';
+  document.getElementById('gastoModalOverlay').classList.add('active');
+}
+
+function abrirEdicionGasto(id){
+  const g=gastos.find(x=>x.id===id);
+  if(!g)return;
+  document.getElementById('gastoModalTitle').textContent='Editar Gasto';
+  document.getElementById('editGastoId').value=g.id;
+  document.getElementById('editGastoConcepto').value=g.concepto||'';
+  document.getElementById('editGastoCategoria').value=g.categoria||'Combustible';
+  document.getElementById('editGastoMonto').value=g.monto||'';
+  document.getElementById('editGastoFecha').value=g.fecha||'';
+  document.getElementById('editGastoNotas').value=g.notas||'';
+  document.getElementById('gastoModalOverlay').classList.add('active');
+}
+
+async function guardarGasto(){
+  const id=document.getElementById('editGastoId').value;
+  const concepto=document.getElementById('editGastoConcepto').value.trim()||'Sin concepto';
+  const categoria=document.getElementById('editGastoCategoria').value;
+  const monto=parseFloat(document.getElementById('editGastoMonto').value)||0;
+  const fecha=document.getElementById('editGastoFecha').value;
+  const notas=document.getElementById('editGastoNotas').value.trim();
+  if(!fecha){mostrarToast('Selecciona una fecha','error');return;}
+  if(monto<=0){mostrarToast('Ingresa un monto valido','error');return;}
+  if(id){
+    const g=gastos.find(x=>x.id===id);
+    if(g){g.concepto=concepto;g.categoria=categoria;g.monto=monto;g.fecha=fecha;g.notas=notas;}
+    if(USE_API)await fetch(API_BASE+'/gastos/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({concepto,categoria,monto,fecha,notas})}).catch(()=>{});
+  } else {
+    let nid=Date.now()+'_'+Math.random().toString(36).substr(2,5);
+    if(USE_API){
+      const r=await apiFetch('/gastos',{method:'POST',body:JSON.stringify({concepto,categoria,monto,fecha,notas})});
+      if(r&&r.id)nid=r.id;
+    }
+    gastos.push({id:nid,concepto,categoria,monto,fecha,notas});
+  }
+  guardarGastos();actualizarGastos();cerrarGastoModal();
+  mostrarToast('Gasto guardado');
+}
+
+async function eliminarGasto(){
+  const id=document.getElementById('editGastoId').value;
+  if(!id||!confirm('Eliminar este gasto?'))return;
+  gastos=gastos.filter(g=>g.id!==id);
+  if(USE_API)await fetch(API_BASE+'/gastos/'+id,{method:'DELETE'}).catch(()=>{});
+  guardarGastos();actualizarGastos();cerrarGastoModal();
+  mostrarToast('Gasto eliminado','error');
+}
+
+function cerrarGastoModal(){document.getElementById('gastoModalOverlay').classList.remove('active');}
+
+async function init(){
+  await apiPromise;
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  map=L.map('map').setView(MORELOS_CENTER,DEFAULT_ZOOM);
+  currentLayer = TILE_LAYERS.osm.addTo(map);
+  document.getElementById('mapaTipo').value='osm';
+  await cargarDatos();
+  await cargarGastos();
+  llenarFiltroMunicipios();
+  llenarDatalist();
+  crearMarcadoresParques();
+  actualizarUI();
+  // Show parques list in sidebar
+  var pc = document.getElementById('listaParques');
+  if(pc){
+    var html = '';
+    PARQUES.forEach(function(p){
+      html += '<div class="plan-item" onclick="abrirParque(\''+p.id+'\')" style="border-left-color:#ce93d8;cursor:pointer;">';
+      html += '<div class="nombre">&#127981; '+p.nombre+'</div>';
+      html += '<div class="municipio">'+p.municipio+'</div>';
+      html += '<div class="fecha" style="margin-top:2px;">'+p.desc.substring(0,60)+'...</div>';
+      html += '</div>';
+    });
+    pc.innerHTML = html;
+  }
+}
+window.onload=init;
+</script>
+</body>
+</html>
+
