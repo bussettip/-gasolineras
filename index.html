@@ -78,6 +78,7 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#1a1a2e;
 .popup-custom{font-size:.75rem;min-width:180px}
 .popup-custom h3{color:#e94560;font-size:.85rem;margin-bottom:4px}
 .popup-custom p{margin:2px 0}
+.tipo-proveedor{background:#e65100;color:#fff3e0}
 .toast{position:fixed;bottom:20px;right:20px;background:#2d6a4f;color:#fff;padding:10px 20px;border-radius:6px;box-shadow:0 4px 15px rgba(0,0,0,.3);z-index:10000;display:none;animation:slideIn .3s ease}
 @keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}
 .toast.error{background:#8a0000}
@@ -169,6 +170,7 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#1a1a2e;
       <button onclick="cambiarTab('plan',this)">Plan</button>
       <button onclick="cambiarTab('gastos',this)">Gastos</button>
       <button onclick="cambiarTab('parques',this)" style="background:#4a148c;color:#e0e0e0;">Parques</button>
+      <button onclick="cambiarTab('proveedores',this)" style="background:#e65100;color:#e0e0e0;">Proveedores</button>
     </div>
     <div class="sidebar-content">
       <div class="tab-panel active" id="panel-lista">
@@ -244,6 +246,16 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#1a1a2e;
         </div>
         <div id="listaParques"></div>
 </div>
+      <div class="tab-panel" id="panel-proveedores">
+        <div style="background:#e65100;border-radius:4px;padding:8px;margin-bottom:6px;text-align:center;">
+          <div style="font-size:.82rem;color:#e0e0e0;font-weight:bold;">Proveedores de Combustible</div>
+          <div style="font-size:.7rem;color:#ffcc80;margin-top:2px;">Precios por zona y volumen</div>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:6px;">
+          <button onclick="mostrarModalProveedor()" style="background:#e65100;color:#fff;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-size:.78rem;">+ Nuevo Proveedor</button>
+        </div>
+        <div id="listaProveedores"></div>
+      </div>
 </div>
 
 <div class="modal-overlay" id="modalOverlay">
@@ -404,6 +416,39 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#1a1a2e;
       <button class="btn-primary" onclick="guardarGasto()">Guardar</button>
       <button class="btn-danger" onclick="eliminarGasto()">Eliminar</button>
       <button class="btn-secondary" onclick="cerrarGastoModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="proveedorModalOverlay">
+  <div class="modal">
+    <h2 id="proveedorModalTitle">Nuevo Proveedor</h2>
+    <input type="hidden" id="editProveedorId">
+    <div class="campo">
+      <label>Nombre del Proveedor</label>
+      <input type="text" id="editProveedorNombre" placeholder="Ej: Pemex, BP, Shell...">
+    </div>
+    <div class="campo">
+      <label>Contacto</label>
+      <input type="text" id="editProveedorContacto" placeholder="Nombre del contacto">
+    </div>
+    <div class="campo">
+      <label>Tel&eacute;fono</label>
+      <input type="text" id="editProveedorTelefono" placeholder="Tel&eacute;fono">
+    </div>
+    <div class="campo">
+      <label>Notas / Comentarios</label>
+      <textarea id="editProveedorNotas" placeholder="Condiciones de pago, observaciones..." style="min-height:40px;"></textarea>
+    </div>
+    <hr style="border-color:#0f3460;margin:12px 0;">
+    <h3>Precios por Zona y Volumen</h3>
+    <div style="font-size:.72rem;color:#a0a0b0;margin-bottom:6px;">Agrega los precios de combustible seg&uacute;n la zona y el volumen de compra.</div>
+    <div id="preciosProveedorContainer"></div>
+    <button type="button" onclick="agregarPrecioProveedor()" style="background:#0f3460;color:#e0e0e0;border:1px dashed #e94560;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.75rem;width:100%;margin-top:4px;">+ Agregar Precio</button>
+    <div class="btn-group" style="margin-top:12px;">
+      <button class="btn-primary" onclick="guardarProveedor()">Guardar</button>
+      <button class="btn-danger" onclick="eliminarProveedor()">Eliminar</button>
+      <button class="btn-secondary" onclick="cerrarProveedorModal()">Cancelar</button>
     </div>
   </div>
 </div>
@@ -2103,6 +2148,137 @@ async function eliminarGasto(){
 
 function cerrarGastoModal(){document.getElementById('gastoModalOverlay').classList.remove('active');}
 
+// ===== PROVEEDORES =====
+const VOLUMENES = ["Menos de 1,000L","1,000-5,000L","5,000-10,000L","10,000-20,000L","M\u00e1s de 20,000L"];
+let proveedores = [];
+
+async function cargarProveedores(){
+  if(USE_API){
+    const r=await apiFetch('/proveedores');
+    if(r&&r.length){proveedores=r;return;}
+  }
+  const stored=localStorage.getItem('gasolineras_proveedores');
+  if(stored){try{proveedores=JSON.parse(stored);}catch(e){proveedores=[];}}
+  if(!Array.isArray(proveedores))proveedores=[];
+}
+
+function guardarProveedores(){
+  localStorage.setItem('gasolineras_proveedores',JSON.stringify(proveedores));
+}
+
+function renderProveedores(){
+  const el=document.getElementById('listaProveedores');
+  if(!proveedores.length){
+    el.innerHTML='<div style="text-align:center;color:#666;padding:20px;font-size:.8rem;">No hay proveedores registrados</div>';
+    return;
+  }
+  let html='';
+  proveedores.forEach(function(p){
+    html+='<div class="estacion-card" onclick="mostrarModalProveedor(\''+p.id+'\')">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;">';
+    html+='<h4>'+p.nombre+'</h4>';
+    html+='<span class="tipo-badge tipo-proveedor">'+(p.precios?.length||0)+' precios</span>';
+    html+='</div>';
+    if(p.contacto)html+='<p>Contacto: '+p.contacto+'</p>';
+    if(p.telefono)html+='<p>Tel: '+p.telefono+'</p>';
+    if(p.precios&&p.precios.length){
+      var min=Math.min.apply(null,p.precios.map(function(x){return x.precio}));
+      var max=Math.max.apply(null,p.precios.map(function(x){return x.precio}));
+      html+='<p style="color:#4ecdc4;">$'+min.toFixed(2)+' - $'+max.toFixed(2)+' /L</p>';
+    }
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+
+function mostrarModalProveedor(id){
+  const overlay=document.getElementById('proveedorModalOverlay');
+  const title=document.getElementById('proveedorModalTitle');
+  document.getElementById('editProveedorId').value='';
+  document.getElementById('editProveedorNombre').value='';
+  document.getElementById('editProveedorContacto').value='';
+  document.getElementById('editProveedorTelefono').value='';
+  document.getElementById('editProveedorNotas').value='';
+  document.getElementById('preciosProveedorContainer').innerHTML='';
+  if(id){
+    var p=proveedores.find(function(x){return x.id===id});
+    if(!p)return;
+    title.textContent='Editar Proveedor';
+    document.getElementById('editProveedorId').value=p.id;
+    document.getElementById('editProveedorNombre').value=p.nombre||'';
+    document.getElementById('editProveedorContacto').value=p.contacto||'';
+    document.getElementById('editProveedorTelefono').value=p.telefono||'';
+    document.getElementById('editProveedorNotas').value=p.notas||'';
+    if(p.precios&&p.precios.length){
+      p.precios.forEach(function(pr){
+        agregarPrecioProveedor(pr.zona,pr.volumen,pr.precio);
+      });
+    }
+  } else {
+    title.textContent='Nuevo Proveedor';
+  }
+  overlay.classList.add('active');
+}
+
+function agregarPrecioProveedor(zona,volumen,precio){
+  const container=document.getElementById('preciosProveedorContainer');
+  const idx=container.children.length;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;gap:4px;align-items:center;margin-bottom:4px;';
+  div.innerHTML='<select class="precio-zona" style="flex:1;padding:4px;border:1px solid #0f3460;background:#1a1a2e;color:#e0e0e0;border-radius:4px;font-size:.72rem;">'
+    +ZONAS_LIST.map(function(z){return '<option value="'+z+'"'+(zona===z?' selected':'')+'>'+z+'</option>'}).join('')
+    +'</select>'
+    +'<select class="precio-volumen" style="flex:1;padding:4px;border:1px solid #0f3460;background:#1a1a2e;color:#e0e0e0;border-radius:4px;font-size:.72rem;">'
+    +VOLUMENES.map(function(v){return '<option value="'+v+'"'+(volumen===v?' selected':'')+'>'+v+'</option>'}).join('')
+    +'</select>'
+    +'<input type="number" step="0.01" min="0" class="precio-valor" placeholder="$" value="'+(precio||'')+'" style="width:80px;padding:4px;border:1px solid #0f3460;background:#1a1a2e;color:#e0e0e0;border-radius:4px;font-size:.72rem;">'
+    +'<button onclick="this.parentElement.remove()" style="background:#e94560;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:.7rem;">X</button>';
+  container.appendChild(div);
+}
+
+async function guardarProveedor(){
+  const id=document.getElementById('editProveedorId').value;
+  const nombre=document.getElementById('editProveedorNombre').value.trim()||'Proveedor';
+  const contacto=document.getElementById('editProveedorContacto').value.trim();
+  const telefono=document.getElementById('editProveedorTelefono').value.trim();
+  const notas=document.getElementById('editProveedorNotas').value.trim();
+  const precioRows=document.querySelectorAll('#preciosProveedorContainer > div');
+  const precios=[];
+  precioRows.forEach(function(row){
+    var zona=row.querySelector('.precio-zona')?.value;
+    var volumen=row.querySelector('.precio-volumen')?.value;
+    var precioVal=parseFloat(row.querySelector('.precio-valor')?.value);
+    if(zona&&volumen&&!isNaN(precioVal)&&precioVal>0){
+      precios.push({zona:zona,volumen:volumen,precio:precioVal});
+    }
+  });
+  if(id){
+    var p=proveedores.find(function(x){return x.id===id});
+    if(p){p.nombre=nombre;p.contacto=contacto;p.telefono=telefono;p.notas=notas;p.precios=precios;}
+    if(USE_API)await fetch(API_BASE+'/proveedores/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({nombre,contacto,telefono,notas,precios})}).catch(function(){});
+  } else {
+    var nid=Date.now()+'_'+Math.random().toString(36).substr(2,5);
+    if(USE_API){
+      var r=await apiFetch('/proveedores',{method:'POST',body:JSON.stringify({nombre,contacto,telefono,notas,precios})});
+      if(r&&r.id)nid=r.id;
+    }
+    proveedores.push({id:nid,nombre:nombre,contacto:contacto,telefono:telefono,notas:notas,precios:precios});
+  }
+  guardarProveedores();renderProveedores();cerrarProveedorModal();
+  mostrarToast('Proveedor guardado');
+}
+
+async function eliminarProveedor(){
+  const id=document.getElementById('editProveedorId').value;
+  if(!id||!confirm('Eliminar este proveedor?'))return;
+  proveedores=proveedores.filter(function(p){return p.id!==id});
+  if(USE_API)await fetch(API_BASE+'/proveedores/'+id,{method:'DELETE'}).catch(function(){});
+  guardarProveedores();renderProveedores();cerrarProveedorModal();
+  mostrarToast('Proveedor eliminado','error');
+}
+
+function cerrarProveedorModal(){document.getElementById('proveedorModalOverlay').classList.remove('active');}
+
 async function init(){
   await apiPromise;
   if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
@@ -2111,6 +2287,7 @@ async function init(){
   document.getElementById('mapaTipo').value='osm';
   await cargarDatos();
   await cargarGastos();
+  await cargarProveedores();
   llenarFiltroMunicipios();
   llenarDatalist();
   crearMarcadoresParques();
@@ -2128,6 +2305,7 @@ async function init(){
     });
     pc.innerHTML = html;
   }
+  renderProveedores();
 }
 window.onload=init;
 </script>
